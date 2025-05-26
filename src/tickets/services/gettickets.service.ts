@@ -1,0 +1,360 @@
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Estado } from 'src/schemas/estados.schema';
+import { Model, Types } from 'mongoose';
+import { Ticket, TicketDocument } from 'src/schemas/ticket.schema';
+import { Area } from 'src/schemas/area.schema';
+import { Prioridad } from 'src/schemas/prioridades.schema';
+import { Usuario } from 'src/schemas/usuarios.schema';
+import { Rol } from 'src/schemas/roles.schema';
+import { populateTickets } from 'src/common/utils/populate.tickets';
+import { formatDates } from 'src/common/utils/formatDates';
+import * as exceljs from 'exceljs';
+import * as fs from 'fs';
+import * as path from 'path';
+
+@Injectable()
+export class GetTicketsService {
+    constructor(
+        @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
+        @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
+        @InjectModel(Area.name) private readonly areaModel: Model<Area>,
+        @InjectModel(Prioridad.name) private readonly prioridadModel: Model<Prioridad>,
+        @InjectModel(Usuario.name) private readonly usuarioModel: Model<Usuario>,
+        @InjectModel(Rol.name) private readonly rolModel: Model<Rol>,
+    ) { }
+
+    async getTickets(estado: string, user: any): Promise<Ticket[] | null> {
+        let result: TicketDocument[] = [];
+        const { rol, areas } = user;
+        const userObjectId = new Types.ObjectId(user.userId);
+        const estadoticket = await this.estadoModel.findOne({ Estado: { $regex: new RegExp(`^${estado}$`, 'i') } }).select('_id').exec();
+        console.log(estadoticket);
+        if (rol === "Usuario") {
+            result = await this.ticketModel.find({ Reasignado_a: userObjectId, Estado: estadoticket?._id }).populate('Reasignado_a').exec();
+        } else if (rol === "Moderador") {
+            if (estado === "NUEVOS") {
+                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id }).exec();
+            } else if (estado === "REVISION") {
+                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id, Area: areas });
+            } else if (estado === "ABIERTOS") {
+                result = await this.ticketModel.find({ Reasignado_a: userObjectId, Estado: estadoticket?._id });
+            } else if (estado === "REABIERTOS") {
+                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id });
+            } else {
+                result = await this.ticketModel.find({ Asignado_a: userObjectId, Reasignado_a: userObjectId, Estado: estadoticket?._id });
+            }
+        } else {
+            result = await this.ticketModel.find({ Estado: estadoticket?._id });
+        }
+        const populatedTickets = await populateTickets(result);
+        const formattedTickets = populatedTickets.map(formatDates);
+        return formattedTickets.length ? formattedTickets : null;
+    };
+
+    async getReabrirFields() {
+        try {
+            const areas = await this.areaModel.find().exec();
+            const prioridades = await this.prioridadModel.find().exec();
+
+            if (!areas.length || !prioridades.length) {
+                throw new Error("No se encontraron áreas o prioridades.");
+            }
+
+            const moderadores = await Promise.all(
+                areas.map(async (area) => {
+                    const resolutores = await this.usuarioModel
+                        .find({
+                            Area: area._id,
+                            isActive: true,
+                        })
+                        .select("Nombre")
+                        .exec();
+
+                    return {
+                        area: { area: area.Area, _id: area._id },
+                        resolutores,
+                    };
+                })
+            );
+
+            if (!moderadores.length) {
+                throw new Error("No se encontraron moderadores.");
+            }
+
+            console.log("Moderadores:", moderadores);
+            return { prioridades, moderadores };
+        } catch (error) {
+            console.error("Error al obtener los campos de reabrir:", error.message);
+            throw new Error("Error interno del servidor.");
+        }
+    };
+
+    async getareasAsignacion() {
+        try {
+            const moderador = await this.rolModel.findOne({ Rol: "Moderador" }).exec();
+            const administrador = await this.rolModel.findOne({ Rol: "Administrador" }).exec();
+            const AREAS = await this.areaModel.find().exec();
+            const prioridades = await this.prioridadModel.find().exec();
+            if (!AREAS) {
+                throw new Error("No se encontraron áreas.");
+            }
+            const AREASRESOLUTORES = await Promise.all(
+                AREAS.map(async (area) => {
+                    const RESOLUTOR = await this.usuarioModel.find({
+                        isActive: true,
+                        Area: area._id,
+                        $or: [{ Rol: moderador?._id }, { Rol: administrador?._id }],
+                    }).select("Nombre Correo");
+                    console.log("RESOLUTOR", RESOLUTOR);
+                    return {
+                        area: { area: area.Area, _id: area._id },
+                        resolutores: RESOLUTOR,
+                    };
+                })
+            );
+            if (!AREASRESOLUTORES) {
+                throw new Error("No se encontraron resolutores");
+            }
+            return { AREASRESOLUTORES, prioridades };
+        } catch (error) {
+            console.error("Error al obtener los campos de reabrir:", error.message);
+            throw new Error("Error interno del servidor.");
+        }
+    };
+
+    async getareasReasignacion(user: any) {
+        const { areas } = user;
+        try {
+            const filter = areas ? { _id: { $in: Array.isArray(areas) ? areas : [areas] } } : {};
+            const AREAS = await this.areaModel.find(filter).exec();
+            const prioridades = await this.prioridadModel.find().exec();
+            if (!AREAS || AREAS.length === 0) {
+                throw new Error("No se encontraron áreas.");
+            }
+
+            const AREASRESOLUTORES = await Promise.all(
+                AREAS.map(async (area) => {
+                    const RESOLUTOR = await this.usuarioModel.find({ isActive: true, Area: area._id }).select('Nombre Correo').exec();
+                    return {
+                        area: { area: area.Area, _id: area._id },
+                        resolutores: RESOLUTOR,
+                    };
+                })
+            );
+
+            if (!AREASRESOLUTORES || AREASRESOLUTORES.length === 0) {
+                throw new Error("No se encontraron resolutores.");
+            }
+
+            return { AREASRESOLUTORES, prioridades };
+        } catch (error) {
+            console.error("Error al obtener los campos de reabrir:", error.message);
+            throw new Error("Error interno del servidor.");
+        }
+    };
+
+    async getInfoSelects() { };
+
+    async getAreas() {
+        try {
+            const AREAS = await this.areaModel.find().exec();
+            if (!AREAS) {
+                throw new Error("No se encontrarom areas.");
+            }
+            return { AREAS, tickets: [] };
+
+        } catch (error) {
+            console.error("Error al obtener los campos de reabrir:", error.message);
+            throw new Error("Error interno del servidor.");
+        }
+    };
+
+    async getTicketsPorArea(area: string): Promise<Ticket[]> {
+        try {
+            const [areaDoc] = await this.areaModel.find({ Area: area }).select("_id").exec();
+            const Area = areaDoc._id;
+            const tickets = await this.ticketModel.find({ Area }).exec();
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error al buscar los tickets.', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    };
+
+    async getTicketsResolutor(userid: string) {
+        const tickets = await this.ticketModel.find({ Reasignado_a: new Types.ObjectId(userid) }).exec();
+        if (!tickets.length) {
+            throw new Error("No se encontraron tickets de este resolutor.");
+        }
+
+        const populatedTickets = await populateTickets(tickets);
+        const formattedTickets = populatedTickets.map(formatDates);
+        return formattedTickets;
+    }
+
+    //Falta corregirlo.
+    async exportTicketsToExcel(): Promise<string> {
+        try {
+            // 1️⃣ Obtener los tickets con populate
+            const tickets = await this.ticketModel
+                .find()
+                .populate([
+                    {
+                        path: 'Subcategoria',
+                        populate: [{ path: 'Equipo', select: 'Area _id' }],
+                    },
+                    { path: 'Estado' },
+                    {
+                        path: 'Asignado_a',
+                        select: 'Nombre Correo _id',
+                        populate: [{ path: 'Area', select: 'Area _id' }],
+                    },
+                    {
+                        path: 'Reasignado_a',
+                        select: 'Nombre Correo _id',
+                        populate: [{ path: 'Area', select: 'Area _id' }],
+                    },
+                    {
+                        path: 'Resuelto_por',
+                        select: 'Nombre Correo _id',
+                        populate: [{ path: 'Area', select: 'Area _id' }],
+                    },
+                    {
+                        path: 'Cliente',
+                        select: 'Nombre Correo Telefono Ubicacion _id',
+                        populate: [
+                            { path: 'Direccion_General', select: 'Direccion_General _id' },
+                            { path: 'direccion_area', select: 'direccion_area _id' },
+                        ],
+                    },
+                ])
+                .exec();
+            console.log(tickets);
+
+            if (!tickets.length) {
+                throw new HttpException('No hay tickets disponibles.', HttpStatus.NOT_FOUND);
+            }
+
+            // 2️⃣ Crear un nuevo libro de Excel
+            const workbook = new exceljs.Workbook();
+            const worksheet = workbook.addWorksheet('Tickets');
+
+            // 3️⃣ Definir las columnas
+            worksheet.columns = [
+                { header: 'ID', key: 'Id', width: 25 },
+                { header: 'Fecha Creacion', key: 'Fecha_creacion', width: 25 },
+                { header: 'Fecha Cierre', key: 'Fecha_hora_cierre', width: 25 },
+                { header: "Oficio recepcion", key: "NumeroRec_Oficio", width: 25 },
+                { header: "Oficio cierre", key: "Numero_Oficio", width: 25 },
+                { header: "Estado", key: "Estado", width: 25 },
+                { header: "Area", key: "Area", width: 25 },
+                { header: "Tipo incidencia", key: "Tipo_incidencia", width: 25 },
+                { header: "Servicio", key: "Servicio", width: 25 },
+                { header: "Categoría", key: "Categoria", width: 25 },
+                { header: "Subcategoría", key: "Subcategoria", width: 25 },
+                { header: "Descripcion", key: "Descripcion", width: 25 },
+                { header: "Prioridad", key: "Prioridad", width: 25 },
+                { header: "Fecha limite de resolucion", key: "Fecha_lim_res", width: 25 },
+                { header: "Creado por", key: "Creado_por", width: 25 },
+                { header: "Area creado por", key: "Area_creado_por", width: 25 },
+                { header: "Asignado a", key: "Asignado_a", width: 25 },
+                { header: "Area asignado", key: "Area_asignado", width: 25 },
+                { header: "Reasignado a", key: "Reasignado_a", width: 25 },
+                { header: "Area reasignado", key: "Area_reasignado_a", width: 25 },
+                {
+                    header: "Respuesta cierre reasignado",
+                    key: "Respuesta_cierre_reasignado",
+                    width: 25,
+                },
+                { header: "Resuelto_por", key: "Resuelto_por", width: 25 },
+                { header: "Area resuelto por", key: "Area_resuelto_por", width: 25 },
+                { header: "Cliente", key: "Cliente", width: 25 },
+                { header: "Correo cliente", key: "Correo_cliente", width: 25 },
+                { header: "Telefono cliente", key: "Telefono_cliente", width: 25 },
+                //{ header: "Extension cliente", key: "Extension_cliente", width: 25 },
+                { header: "Ubicacion cliente", key: "Ubicacion_cliente", width: 25 },
+                //{ header: "Dependencia cliente", key: "Dependencia_cliente", width: 25 },
+                {
+                    header: "Direccion general cliente",
+                    key: "DireccionG_cliente",
+                    width: 25,
+                },
+                {
+                    header: "Direccion de area cliente",
+                    key: "DireccionA_cliente",
+                    width: 25,
+                },
+            ];
+
+            // 4️⃣ Agregar datos a las filas
+            tickets.forEach((ticket) => {
+                worksheet.addRow({
+                    Id: ticket.Id || "",
+                    Fecha_creacion: ticket.Fecha_hora_creacion || "",
+                    Fecha_hora_cierre: ticket.Fecha_hora_cierre || "",
+                    NumeroRec_Oficio: ticket.NumeroRec_Oficio || "",
+                    Numero_Oficio: ticket.Numero_Oficio || "",
+                    Estado: ticket.Estado || "",
+                    //Area: ticket.Subcategoria?.Equipo.Area || "",
+                    //Tipo_incidencia: ticket.Subcategoria?.Tipo || "",
+                    //Servicio: ticket.Subcategoria?.Servicio || "",
+                    //Categoria: categoria,
+                    //Subcategoria: ticket.Subcategoria?.Subcategoria || "",
+                    Descripcion: ticket.Descripcion || "",
+                    //Prioridad: ticket.Subcategoria?.Descripcion_prioridad || "",
+                    Fecha_lim_res: ticket.Fecha_limite_resolucion_SLA || "",
+                    //Creado_por: ticket.Creado_por?.Nombre || "",
+                    //Area_creado_por: Array.isArray(ticket.Creado_por?.Area)
+                        // ? ticket.Creado_por.Area[0]?.Area
+                        // : "",
+                    //Asignado_a: ticket.Asignado_a?.Nombre || "",
+                    //Area_asignado: Array.isArray(ticket.Asignado_a?.Area)
+                      //  ? ticket.Asignado_a?.Area[0]?.Area
+                        //: "",
+                    // Reasignado_a: ticket.Reasignado_a?.Nombre || "",
+                    // Area_reasignado_a: Array.isArray(ticket.Reasignado_a?.Area)
+                    //     ? ticket.Reasignado_a?.Area[0]?.Area
+                    //     : "",
+                    // Respuesta_cierre_reasignado: ticket.Respuesta_cierre_reasignado || "",
+                    // Resuelto_por: ticket.Resuelto_por?.Nombre || "",
+                    // Area_resuelto_por: Array.isArray(ticket.Resuelto_por?.Area)
+                    //     ? ticket.Resuelto_por?.Area[0]?.Area
+                    //     : "",
+                    // Cliente: ticket.Cliente?.Nombre || "",
+                    // Correo_cliente: ticket.Cliente?.Correo || "",
+                    // Telefono_cliente: ticket.Cliente?.Telefono || "",
+                    // //Extension_cliente: ticket.Cliente?.Extension || "",
+                    // Ubicacion_cliente: ticket.Cliente?.Ubicacion || "",
+                    // //Dependencia_cliente: ticket.Cliente?.Dependencia?.Dependencia || "",
+                    // DireccionG_cliente:
+                    //     ticket.Cliente?.Direccion_General?.Direccion_General || "",
+                    // DireccionA_cliente:
+                    //     ticket.Cliente?.direccion_area?.direccion_area || "",
+                });
+            });
+
+
+            // 5️⃣ Guardar el archivo Excel temporalmente
+            const uploadPath = path.join(__dirname, '..', 'temp');
+            if (!fs.existsSync(uploadPath)) {
+                fs.mkdirSync(uploadPath, { recursive: true });
+            }
+            const filePath = `${uploadPath}/tickets_${Date.now()}.xlsx`;
+            await workbook.xlsx.writeFile(filePath);
+
+            return filePath; // Devuelve la ruta del archivo
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error al generar el Excel.', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+
+};
