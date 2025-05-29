@@ -1,13 +1,18 @@
-import { Controller, Get, HttpException, HttpStatus, Param, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, HttpStatus, Param, Post, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { GetTicketsService } from './services/gettickets.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { PostTicketsService } from './services/posttickets.service';
 import { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import { CreateTicketDto, FileDto } from './dto/create-ticket.dto';
+import { Request } from 'express';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { multerOptions } from 'src/common/utils/multer.diskStorage';
+import { Ticket } from 'src/schemas/ticket.schema';
 
 @Controller('tickets')
-//@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class TicketsController {
     constructor(
         private readonly getticketsService: GetTicketsService,
@@ -17,29 +22,29 @@ export class TicketsController {
         @Req() req: any,) {
         const user = req.user;
         return this.getticketsService.getTickets(estado, user);
-    }
+    };
 
     @Get('reabrir/fields')
     getreabrirFields() {
         return this.getticketsService.getReabrirFields();
-    }
+    };
 
     @Get('asignar/areas')
     getareasAsignacion() {
         return this.getticketsService.getareasAsignacion();
-    }
+    };
 
     @Get('reasignar/areas')
     getareasResignacion(@Req() req: any) {
         const user = req.user;
         return this.getticketsService.getareasReasignacion(user);
-    }
+    };
 
     @Get('crear/getInfoSelects')
-    getInfoSelects() { return this.getticketsService.getInfoSelects(); }
+    getInfoSelects() { return this.getticketsService.getInfoSelects(); };
 
     @Get('historico')
-    getAreas() { return this.getticketsService.getAreas(); }
+    getAreas() { return this.getticketsService.getAreas(); };
 
     @Get('historico/area')
     getTicketsPorArea(@Query('area') area: string) {
@@ -51,11 +56,10 @@ export class TicketsController {
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
-    }
+    };
 
     @Get('resolutor/:id')
     async getTicketsResolutor(@Param('id') userid: string) {
-        console.log(userid);
         try {
             return this.getticketsService.getTicketsResolutor(userid);
         } catch (error) {
@@ -65,7 +69,7 @@ export class TicketsController {
             );
         }
 
-    }
+    };
 
     @Get('export/excel')
     async exportTicketsToExcel(@Res() res: Response) {
@@ -83,5 +87,58 @@ export class TicketsController {
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
+    };
+
+    @Get('clientes/dependencias')
+    getDependenciasCLientes() {
+        try {
+            return this.getticketsService.getDependenciasCLientes();
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    };
+
+    @Get('correos/:id')
+    getCorreos(@Param('id') id: string) {
+        try {
+            return this.getticketsService.getCorreos(id);
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    };
+
+    @Get('buscar/:id')
+    async getTicketsPorId(@Param('id') id: string) {
+        try {
+            return this.getticketsService.getTicketsPorId(id);
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    };
+
+    @Post('crear/ticket')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async crearTicket(
+        @Req() req: any,
+        @UploadedFiles() files: Express.Multer.File[],
+        @Body() dto: CreateTicketDto,      // <-- mapea y valida directo
+    ): Promise<Ticket> {
+        dto.Files = files.map(f => ({
+            name: f.originalname,
+            url: `/temp/${f.filename}`,
+            _id: f.filename,
+        }));
+        
+        return this.postticketsService.crearTicket(dto, req.user);
     }
-}
+
+};

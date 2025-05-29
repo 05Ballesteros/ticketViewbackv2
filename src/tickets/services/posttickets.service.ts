@@ -1,43 +1,63 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Estado } from 'src/schemas/estados.schema';
 import { Model, Types } from 'mongoose';
 import { Ticket } from 'src/schemas/ticket.schema';
+import { Usuario } from 'src/schemas/usuarios.schema';
+import { GetTicketsService } from './gettickets.service';
+import { calcularFechaResolucion } from 'src/common/utils/calcularFechaResolucion';
+import { fechaDefecto, obtenerFechaActual } from 'src/common/utils/fechas';
+import { addHours } from 'date-fns';
+import { historicoCreacion } from 'src/common/utils/historico';
+
+interface UsuarioConRol {
+    _id: Types.ObjectId;
+    Rol: { _id: Types.ObjectId; Rol: string };
+}
 
 @Injectable()
 export class PostTicketsService {
     constructor(
+        private readonly getticketsService: GetTicketsService,
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
+        @InjectModel(Usuario.name) private readonly usuarioModel: Model<Usuario>,
     ) { }
-    async findByEstado(estado: string, user: any): Promise<Ticket[] | null> {
-        let result = [];
-        const { rol, areas } = user;
-        const userObjectId = new Types.ObjectId(user.userId);
-        const estadoticket = await this.estadoModel.findOne({ Estado: { $regex: new RegExp(`^${estado}$`, 'i') } }).select('_id').exec();
-        console.log(estadoticket);
-        const ticketsSoloPorEstado = await this.ticketModel
-            .find({ Estado: estadoticket?._id })
-            .exec();
-        console.log('Tickets filtrados sólo por Estado:', ticketsSoloPorEstado);
-        if (rol === "Usuario") {
-            result = await this.ticketModel.find({ Reasignado_a: userObjectId, Estado: estadoticket?._id });
-        } else if (rol === "Moderador") {
-            if (estado === "NUEVOS") {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id });
-            } else if (estado === "REVISION") {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id, Area: areas });
-            } else if (estado === "ABIERTOS") {
-                result = await this.ticketModel.find({ Reasignado_a: userObjectId, Estado: estadoticket?._id });
-            } else if (estado === "REABIERTOS") {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id });
-            } else {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Reasignado_a: userObjectId, Estado: estadoticket?._id });
-            }
-        } else {
-            result = await this.ticketModel.find({ Estado: estadoticket?._id });
+    async crearTicket(dto: any, user: any): Promise<Ticket> {
+        try {
+            const asignado = await this.usuarioModel.findById(dto.Asignado_a).populate({ path: 'Rol', select: 'Rol Correo Nombre' }).lean<UsuarioConRol>().exec();
+            const Estado = await this.getticketsService.getestadoTicket(asignado?.Rol.Rol);
+            const Categorizacion = await this.getticketsService.getCategorizacion(new Types.ObjectId(dto.Subcategoria));
+            const Fecha_limite = calcularFechaResolucion(dto.Tiempo);
+            const Historia_ticket = historicoCreacion(user, asignado);
+            let data = {
+                Cliente: new Types.ObjectId(dto.Cliente),
+                Medio: new Types.ObjectId(dto.Medio),
+                Asignado_a: new Types.ObjectId(dto.Asignado_a),
+                Subcategoria: new Types.ObjectId(dto.Subcategoria),
+                Descripcion: dto.Descripcion,
+                NumeroRec_Oficio: dto.NumeroRec_Oficio,
+                FIles: dto.Files,
+                Creado_por: new Types.ObjectId(user.UserId),
+                Estado: Estado?._id,
+                Area: Categorizacion?.Equipo,
+                Fecha_hora_creacion: obtenerFechaActual(),
+                Fecha_limite_resolucion_SLA: Fecha_limite,
+                Fecha_limite_respuesta_SLA: addHours(
+                    obtenerFechaActual(),
+                    dto.Tiempo
+                ),
+                Fecha_hora_ultima_modificacion: obtenerFechaActual(),
+                Fecha_hora_cierre: fechaDefecto,
+                Fecha_hora_resolucion: fechaDefecto,
+                Fecha_hora_reabierto: fechaDefecto,
+            };
+            console.log(data);
+            const tareaInstance = new this.ticketModel({data, Historia_ticket});
+            return tareaInstance.save();
+        } catch (error) {
+            console.error("Error al crear el Ticket", error.message);
+            throw new Error("Error interno del servidor.");
         }
-        console.log("tickets", result);
-        return result.length ? result : null;
-    }
-}
+    };
+};

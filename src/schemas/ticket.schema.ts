@@ -11,20 +11,20 @@ export class Ticket {
   @Prop({ type: Types.ObjectId, ref: 'Estado', required: true })
   Estado: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'Medio', required: true })
+  Medio: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'Area', required: true })
   Area: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Usuario', required: true })
   Creado_por: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Subcategoria', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Categorizacion', required: true })
   Subcategoria: Types.ObjectId;
 
   @Prop({ type: String, required: true })
   Descripcion: string;
-
-  @Prop({ type: Types.ObjectId, ref: 'Medio', required: true })
-  Medio: Types.ObjectId;
 
   @Prop({ type: String, default: '' })
   NumeroRec_Oficio: string;

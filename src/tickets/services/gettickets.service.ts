@@ -5,6 +5,7 @@ import { Model, Types } from 'mongoose';
 import { Ticket, TicketDocument } from 'src/schemas/ticket.schema';
 import { Area } from 'src/schemas/area.schema';
 import { Prioridad } from 'src/schemas/prioridades.schema';
+import { Dependencia } from 'src/schemas/dependencia.schema';
 import { Usuario } from 'src/schemas/usuarios.schema';
 import { Rol } from 'src/schemas/roles.schema';
 import { populateTickets } from 'src/common/utils/populate.tickets';
@@ -12,16 +13,35 @@ import { formatDates } from 'src/common/utils/formatDates';
 import * as exceljs from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Cliente } from 'src/schemas/cliente.schema';
+import { populateCorreos } from 'src/common/utils/populateCorreos';
+import { DireccionGeneral } from 'src/schemas/direccion_general.schema';
+import { ClientePopulated, TicketPopulated } from 'src/common/Interfaces/interfacesparaconsulta';
+import { TipoTicket } from 'src/schemas/tipoticket.schema';
+import { Categoria } from 'src/schemas/categoria.schema';
+import { Servicio } from 'src/schemas/servicio.schema';
+import { Subcategoria } from 'src/schemas/subcategoria.schema';
+import { DireccionArea } from 'src/schemas/direccionarea.schema';
+import { Medio } from 'src/schemas/mediocontacto.schema';
+import { Categorizacion } from 'src/schemas/categorizacion.schema';
+import { sub } from 'date-fns';
 
 @Injectable()
 export class GetTicketsService {
     constructor(
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
-        @InjectModel(Area.name) private readonly areaModel: Model<Area>,
         @InjectModel(Prioridad.name) private readonly prioridadModel: Model<Prioridad>,
         @InjectModel(Usuario.name) private readonly usuarioModel: Model<Usuario>,
         @InjectModel(Rol.name) private readonly rolModel: Model<Rol>,
+        @InjectModel(Dependencia.name) private readonly depedenciaModel: Model<Dependencia>,
+        @InjectModel(Cliente.name) private readonly clienteModel: Model<Cliente>,
+        @InjectModel(DireccionArea.name) private readonly direccionAreaModel: Model<DireccionArea>,
+        @InjectModel(DireccionGeneral.name) private readonly direcciongeneralModel: Model<DireccionGeneral>,
+        @InjectModel(Area.name) private readonly areaModel: Model<Area>,
+        @InjectModel(Medio.name) private readonly medioModel: Model<Medio>,
+        @InjectModel(Categorizacion.name) private readonly categorizacionModel: Model<Categorizacion>,
+        @InjectModel(Subcategoria.name) private readonly subcategoriaModel: Model<Subcategoria>,
     ) { }
 
     async getTickets(estado: string, user: any): Promise<Ticket[] | null> {
@@ -106,7 +126,6 @@ export class GetTicketsService {
                         Area: area._id,
                         $or: [{ Rol: moderador?._id }, { Rol: administrador?._id }],
                     }).select("Nombre Correo");
-                    console.log("RESOLUTOR", RESOLUTOR);
                     return {
                         area: { area: area.Area, _id: area._id },
                         resolutores: RESOLUTOR,
@@ -154,8 +173,6 @@ export class GetTicketsService {
         }
     };
 
-    async getInfoSelects() { };
-
     async getAreas() {
         try {
             const AREAS = await this.areaModel.find().exec();
@@ -196,7 +213,6 @@ export class GetTicketsService {
         const formattedTickets = populatedTickets.map(formatDates);
         return formattedTickets;
     }
-
     //Falta corregirlo.
     async exportTicketsToExcel(): Promise<string> {
         try {
@@ -310,12 +326,12 @@ export class GetTicketsService {
                     Fecha_lim_res: ticket.Fecha_limite_resolucion_SLA || "",
                     //Creado_por: ticket.Creado_por?.Nombre || "",
                     //Area_creado_por: Array.isArray(ticket.Creado_por?.Area)
-                        // ? ticket.Creado_por.Area[0]?.Area
-                        // : "",
+                    // ? ticket.Creado_por.Area[0]?.Area
+                    // : "",
                     //Asignado_a: ticket.Asignado_a?.Nombre || "",
                     //Area_asignado: Array.isArray(ticket.Asignado_a?.Area)
-                      //  ? ticket.Asignado_a?.Area[0]?.Area
-                        //: "",
+                    //  ? ticket.Asignado_a?.Area[0]?.Area
+                    //: "",
                     // Reasignado_a: ticket.Reasignado_a?.Nombre || "",
                     // Area_reasignado_a: Array.isArray(ticket.Reasignado_a?.Area)
                     //     ? ticket.Reasignado_a?.Area[0]?.Area
@@ -356,5 +372,129 @@ export class GetTicketsService {
         }
     }
 
+    async getDependenciasCLientes() {
+        const dependencias = await this.depedenciaModel.find().exec();
+        const DEPENDENCIASCLIENTES = await Promise.all(
+            dependencias.map(async (dependencia) => {
+                const clientes = await this.clienteModel.find({
+                    Dependencia: dependencia._id
+                }).exec();
+                return {
+                    Dependencia: {
+                        Dependencia: dependencia.Dependencia,
+                        _id: dependencia._id,
+                    },
+                    clientes,
+                };
+            })
+        );
 
+        return DEPENDENCIASCLIENTES;
+    }
+
+    async getCorreos(id: string) {
+        const ticket = await this.ticketModel.findOne({ _id: new Types.ObjectId(id) })
+            .populate([
+                { path: 'Asignado_a', select: 'Nombre Correo Coordinacion Area _id' },
+                { path: 'Cliente', select: 'Correo -_id' }
+            ])
+            .exec() as TicketPopulated | null;
+
+        if (!ticket) {
+            throw new Error('No se encontraron correos.');
+        }
+
+        if (typeof ticket.Cliente === 'object' && 'Correo' in ticket.Cliente) {
+            const correoCliente = (ticket.Cliente as ClientePopulated).Correo;
+
+            return {
+                correoCliente,
+                correoMesa: process.env.CORREO_MESA || 'centroservicio@ipejal.gob.mx',
+            };
+        } else {
+            throw new Error('Cliente no está poblado correctamente');
+        }
+    }
+
+    async getInfoSelects() {
+        try {
+            const [AREAS_, MEDIO_, CATEGORIZACION_] = await Promise.all([
+                this.areaModel.find().sort({ Area: 1 }).exec(),
+                this.medioModel.find().sort({ Medio: 1 }).exec(),
+                this.categorizacionModel.find().sort({ Subcategoria: 1 }).populate({ path: 'Equipo' }).exec(),
+            ]);
+
+            const resolutores = await Promise.all(
+                AREAS_.map(async (area) => {
+                    const resolutor = await this.usuarioModel.find({
+                        Area: area._id,
+                        isActive: true,
+                    })
+                        .select("Nombre Correo")
+                        .sort({ Nombre: "asc" });
+                    return {
+                        area: { area: area.Area, _id: area._id },
+                        resolutores: resolutor,
+                    };
+                })
+            );
+            const groupedResolutores = resolutores.map((r) => ({
+                label: r.area.area,
+                options: r.resolutores.map((rs) => ({ value: rs._id, label: rs.Nombre })),
+            }));
+
+            const formatedMedio = MEDIO_.map((f) => ({ value: f._id, label: f.Medio }));
+            const formatedSubcategorias = CATEGORIZACION_.map((f) => ({ ...f, value: f._id, label: f.Subcategoria }));
+
+            return {
+                resolutores: groupedResolutores,
+                medios: formatedMedio,
+                categorizacion: formatedSubcategorias,
+            };
+        } catch (error) {
+            return false;
+        }
+
+
+    };
+
+    async getTicketsPorId(id: string) {
+        const tickets = await this.ticketModel.find({ Id: id }).exec();
+        if (!tickets.length) {
+            throw new Error("No se encontro el Ticket.");
+        }
+        const populatedTickets = await populateTickets(tickets);
+        const formattedTickets = populatedTickets.map(formatDates);
+        return formattedTickets;
+    }
+
+    //Se utiliza para obtener el estado según el rol del asignado.
+    async getestadoTicket(Rol: any) {
+        try {
+            if (Rol === "Root" || Rol === "Administrador") {
+                const Estado = await this.estadoModel.findOne({ Estado: "STANDBY" });
+                return Estado;
+            } else if (Rol === "Moderador") {
+                const Estado = await this.estadoModel.findOne({ Estado: "NUEVOS" });
+                return Estado;
+            } else {
+                const Estado = await this.estadoModel.findOne({ Estado: "ABIERTOS" });
+                return Estado;
+            }
+            if (!Estado) {
+                console.error("Estado no encontrado.");
+                throw new Error("No se encontró ningún estado con 'STANDBY'");
+            }
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error interno al obtener el estado.', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    };
+    //Obtiene todos los datos de la categorización por medio de la subcategoria en string
+    async getCategorizacion(Subcategoria: any) {
+        const Categorizacion = await this.categorizacionModel.findById({ _id: Subcategoria });
+        return Categorizacion;
+    };
 };

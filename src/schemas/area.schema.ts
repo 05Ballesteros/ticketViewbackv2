@@ -5,9 +5,6 @@ import { Document, Types } from 'mongoose';
 export class Area extends Document {
   @Prop({ type: String, required: true })
   Area: string;
-
-  @Prop({ type: [Types.ObjectId], ref: 'Incidencia', default: [] })
-  Tipo_de_incidencia: Types.ObjectId[];
 }
 
 export const AreaSchema = SchemaFactory.createForClass(Area);
