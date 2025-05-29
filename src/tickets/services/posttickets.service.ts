@@ -29,7 +29,7 @@ export class PostTicketsService {
             const Estado = await this.getticketsService.getestadoTicket(asignado?.Rol.Rol);
             const Categorizacion = await this.getticketsService.getCategorizacion(new Types.ObjectId(dto.Subcategoria));
             const Fecha_limite = calcularFechaResolucion(dto.Tiempo);
-            const Historia_ticket = historicoCreacion(user, asignado);
+            const Historia_ticket = await historicoCreacion(user, asignado);
             let data = {
                 Cliente: new Types.ObjectId(dto.Cliente),
                 Medio: new Types.ObjectId(dto.Medio),
@@ -51,9 +51,10 @@ export class PostTicketsService {
                 Fecha_hora_cierre: fechaDefecto,
                 Fecha_hora_resolucion: fechaDefecto,
                 Fecha_hora_reabierto: fechaDefecto,
+                Historia_ticket: Historia_ticket,
             };
             console.log(data);
-            const tareaInstance = new this.ticketModel({data, Historia_ticket});
+            const tareaInstance = new this.ticketModel(data);
             return tareaInstance.save();
         } catch (error) {
             console.error("Error al crear el Ticket", error.message);
