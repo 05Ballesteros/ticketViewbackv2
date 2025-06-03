@@ -1,10 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
-@Schema({ collection: 'Dependencia', timestamps: true })
+@Schema({ collection: 'Dependencia' })
 export class Dependencia extends Document {
-  @Prop({ type: String, trim: true, required: true })
-  Dependencia: string;
+  @Prop({ required: true })
+  Dependencia: Types.ObjectId;
 }
 
 export const DependenciaSchema = SchemaFactory.createForClass(Dependencia);

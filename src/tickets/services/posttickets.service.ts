@@ -12,15 +12,10 @@ import { historicoCreacion } from 'src/common/utils/historico';
 import { guardarArchivos } from 'src/common/utils/guardarArchivos';
 import { UserService } from './user.service';
 import { ClienteService } from './cliente.service';
-import { Cliente } from 'src/schemas/cliente.schema';
+import { Clientes } from 'src/schemas/cliente.schema';
 import { CorreoService } from './correos.service';
 import { channel } from 'diagnostics_channel';
 
-
-interface clienteConArea {
-    _id: Types.ObjectId;
-    direccion_area: { _id: Types.ObjectId; Area: string };
-}
 
 @Injectable()
 export class PostTicketsService {
@@ -44,9 +39,10 @@ export class PostTicketsService {
             const Fecha_limite = calcularFechaResolucion(dto.Tiempo);
             //5.- Obtencion del asignado
             const asignado = await this.userService.getAsignado(dtoAsignado.Asignado_a);
+            console.log("Asignado", asignado);
             //6.- Se obtiene el cliente
             const cliente = await this.clienteService.getCliente(dto.Cliente);
-            //console.log("CLiente", cliente);
+            console.log("Cliente", cliente);
             //5.- LLenado del hostorico
             const Historia_ticket = await historicoCreacion(user, asignado);
             let data = {
@@ -71,9 +67,9 @@ export class PostTicketsService {
             //6.- Se guarda el ticket
             let ticketInstance = new this.ticketModel(data);
             const savedTicket = await ticketInstance.save();
-            if (!savedTicket) { throw new BadRequestException('No se creó el ticket.');}
+            if (!savedTicket) { throw new BadRequestException('No se creó el ticket.'); }
             //7.- Se valida si el ticket se guardo correctamente y si hay archivos para guardar
-             if (files.length > 0) {
+            if (files.length > 0) {
                 console.log("Ticket guardado correctamente");
                 const { data: uploadedFiles } = await guardarArchivos(token, files);
                 const updatedTicket = await this.ticketModel.findByIdAndUpdate(
@@ -97,8 +93,9 @@ export class PostTicketsService {
                 nombreCliente: cliente?.Nombre,
                 telefonoCliente: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
-                // area: direccion_area.Area?
+                area: cliente?.direccion_area?.direccion_area,
             };
+            console.log("CorreoData", correoData);
             //9.- Enviar correos
             const channel = "channel_crearTicket";
             const correo = await this.correoService.enviarCorreo(correoData, channel, token);

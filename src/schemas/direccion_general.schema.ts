@@ -1,10 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
-@Schema({ timestamps: true, collection: 'Direccion_general' })
+@Schema({ collection: 'Direccion_general' })
 export class DireccionGeneral extends Document {
-  @Prop({ type: String, trim: true, required: true })
-  Direccion_General: string;
+  @Prop({ required: true })
+  direccion_area: Types.ObjectId;
 }
 
 export const DireccionGeneralSchema = SchemaFactory.createForClass(DireccionGeneral);

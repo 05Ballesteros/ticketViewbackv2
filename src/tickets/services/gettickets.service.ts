@@ -13,7 +13,7 @@ import { formatDates } from 'src/common/utils/formatDates';
 import * as exceljs from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Cliente } from 'src/schemas/cliente.schema';
+import { Clientes } from 'src/schemas/cliente.schema';
 import { populateCorreos } from 'src/common/utils/populateCorreos';
 import { DireccionGeneral } from 'src/schemas/direccion_general.schema';
 import { ClientePopulated, TicketPopulated } from 'src/common/Interfaces/interfacesparaconsulta';
@@ -35,7 +35,7 @@ export class GetTicketsService {
         @InjectModel(Usuario.name) private readonly usuarioModel: Model<Usuario>,
         @InjectModel(Rol.name) private readonly rolModel: Model<Rol>,
         @InjectModel(Dependencia.name) private readonly depedenciaModel: Model<Dependencia>,
-        @InjectModel(Cliente.name) private readonly clienteModel: Model<Cliente>,
+        @InjectModel(Clientes.name) private readonly clienteModel: Model<Clientes>,
         @InjectModel(DireccionArea.name) private readonly direccionAreaModel: Model<DireccionArea>,
         @InjectModel(DireccionGeneral.name) private readonly direcciongeneralModel: Model<DireccionGeneral>,
         @InjectModel(Area.name) private readonly areaModel: Model<Area>,

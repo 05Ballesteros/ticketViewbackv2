@@ -28,7 +28,6 @@ export class CorreoService {
                 channel === 'channel_crearTicket'
                     ? `Se creó el ticket con número ${correoData.idTicket}`
                     : `Acción realizada correctamente para el ticket con número #${correoData.idTicket}`;
-            console.log("Esto se envío al servicio de emails", message);
             return { desc: responseMessage, data: response.data };
         } catch (error) {
             console.error('Error al enviar el correo:', error);

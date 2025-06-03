@@ -7,7 +7,7 @@ import { Estado, EstadoSchema } from 'src/schemas/estados.schema';
 import { PostTicketsService } from './services/posttickets.service';
 import { Usuario, UsuarioSchema } from 'src/schemas/usuarios.schema';
 import { Area, AreaSchema } from 'src/schemas/area.schema';
-import { Cliente, ClienteSchema } from 'src/schemas/cliente.schema';
+import { Clientes, ClienteSchema } from 'src/schemas/cliente.schema';
 import { Subcategoria, subcategoriaSchema } from 'src/schemas/subcategoria.schema';
 import { Medio, MedioSchema } from 'src/schemas/mediocontacto.schema';
 import { Prioridad, PrioridadSchema } from 'src/schemas/prioridades.schema';
@@ -27,7 +27,7 @@ const mongooseSchemas = [
   { name: Ticket.name, schema: TicketSchema },
   { name: Estado.name, schema: EstadoSchema },
   { name: Usuario.name, schema: UsuarioSchema },
-  { name: Cliente.name, schema: ClienteSchema },
+  { name: Clientes.name, schema: ClienteSchema },
   { name: Subcategoria.name, schema: subcategoriaSchema },
   { name: Prioridad.name, schema: PrioridadSchema },
   { name: Rol.name, schema: RolSchema },
