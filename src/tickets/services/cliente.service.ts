@@ -11,7 +11,7 @@ export class ClienteService {
 
     async getCliente(id: string){
         try {
-           return await this.clienteModel.findById({_id: new Types.ObjectId(id)});
+           return await this.clienteModel.findById({_id: new Types.ObjectId(id)}).populate("direccion_area");
         } catch (error) {
             throw new BadRequestException("No se encontro el Cliente");
         }

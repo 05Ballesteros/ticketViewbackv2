@@ -16,9 +16,10 @@ import { Cliente } from 'src/schemas/cliente.schema';
 import { CorreoService } from './correos.service';
 import { channel } from 'diagnostics_channel';
 
-interface UsuarioConRol {
+
+interface clienteConArea {
     _id: Types.ObjectId;
-    Rol: { _id: Types.ObjectId; Rol: string };
+    direccion_area: { _id: Types.ObjectId; Area: string };
 }
 
 @Injectable()
@@ -45,6 +46,7 @@ export class PostTicketsService {
             const asignado = await this.userService.getAsignado(dtoAsignado.Asignado_a);
             //6.- Se obtiene el cliente
             const cliente = await this.clienteService.getCliente(dto.Cliente);
+            //console.log("CLiente", cliente);
             //5.- LLenado del hostorico
             const Historia_ticket = await historicoCreacion(user, asignado);
             let data = {
@@ -69,8 +71,9 @@ export class PostTicketsService {
             //6.- Se guarda el ticket
             let ticketInstance = new this.ticketModel(data);
             const savedTicket = await ticketInstance.save();
-            //7.- Se valida si el ticket se guardo correctamente
-            if (savedTicket) {
+            if (!savedTicket) { throw new BadRequestException('No se creó el ticket.');}
+            //7.- Se valida si el ticket se guardo correctamente y si hay archivos para guardar
+             if (files.length > 0) {
                 console.log("Ticket guardado correctamente");
                 const { data: uploadedFiles } = await guardarArchivos(token, files);
                 const updatedTicket = await this.ticketModel.findByIdAndUpdate(
@@ -86,11 +89,15 @@ export class PostTicketsService {
             }
             //8.- Se genera el correoData
             let correoData = {
-                idTicket: savedTicket.Id,
+                idTicket: "X",
                 correoUsuario: asignado?.Correo,
                 correoCliente: cliente?.Correo,
                 extensionCliente: cliente?.Extension,
-                cuerpo: savedTicket.Descripcion,
+                descripcionTicket: savedTicket.Descripcion,
+                nombreCliente: cliente?.Nombre,
+                telefonoCliente: cliente?.Telefono,
+                ubicacion: cliente?.Ubicacion,
+                // area: direccion_area.Area?
             };
             //9.- Enviar correos
             const channel = "channel_crearTicket";
