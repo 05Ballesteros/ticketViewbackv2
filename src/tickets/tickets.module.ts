@@ -19,6 +19,9 @@ import { Categoria, CategoriaSchema } from 'src/schemas/categoria.schema';
 import { Servicio, ServicioSchema } from 'src/schemas/servicio.schema';
 import { Categorizacion, CategorizacionSchema } from 'src/schemas/categorizacion.schema';
 import { DireccionArea, DireccionAreaSchema } from 'src/schemas/direccionarea.schema';
+import { UserService } from './services/user.service';
+import { ClienteService } from './services/cliente.service';
+import { CorreoService } from './services/correos.service';
 
 const mongooseSchemas = [
   { name: Ticket.name, schema: TicketSchema },
@@ -39,8 +42,8 @@ const mongooseSchemas = [
   { name: DireccionArea.name, schema: DireccionAreaSchema },
 ];
 @Module({
-  imports: [MongooseModule.forFeature(mongooseSchemas),],
-  providers: [GetTicketsService, PostTicketsService],
+  imports: [MongooseModule.forFeature(mongooseSchemas)],
+  providers: [GetTicketsService, PostTicketsService, UserService, ClienteService, CorreoService],
   controllers: [TicketsController]
 })
-export class TicketsModule {};
+export class TicketsModule { };

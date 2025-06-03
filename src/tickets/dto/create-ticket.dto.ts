@@ -38,8 +38,8 @@ export class CreateTicketDto {
   Tiempo: number;
 
   @ValidateNested({ each: true })
-    @Type(() => FileDto)
-    @IsOptional()
-    Files?: FileDto[];
+  @Type(() => FileDto)
+  @IsOptional()
+  Files?: FileDto[];
 
 }

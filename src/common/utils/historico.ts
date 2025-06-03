@@ -18,6 +18,5 @@ export const historicoCreacion = async (user: any, asignado: any) => {
             Fecha: obtenerFechaActual(),
         });
     };
-    console.log(Historia_ticket);
     return Historia_ticket;
 };

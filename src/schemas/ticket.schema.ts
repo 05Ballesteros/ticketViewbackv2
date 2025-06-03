@@ -1,6 +1,6 @@
 // src/tickets/schemas/ticket.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Types, Document } from 'mongoose';
+import mongoose, { Types, Document } from 'mongoose';
 import { HistoryItem, HistoryItemSchema } from './history-item.schema';
 
 @Schema({ collection: 'Tickets' }) // Nombre correcto de la colección
@@ -20,7 +20,7 @@ export class Ticket {
   @Prop({ type: Types.ObjectId, ref: 'Usuario', required: true })
   Creado_por: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Categorizacion', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Subcategoria', required: true })
   Subcategoria: Types.ObjectId;
 
   @Prop({ type: String, required: true })
@@ -71,8 +71,16 @@ export class Ticket {
   @Prop({ type: [Types.ObjectId], ref: 'Usuario', default: [] })
   Reabierto: Types.ObjectId[];
 
-  @Prop({ type: [String], default: [] })
-  Files: string[];
+  @Prop({
+    type: [{
+      name: String,
+      url: String,
+      _id: { type: Types.ObjectId, default: () => new Types.ObjectId() }
+    }],
+    default: []
+  })
+  Files: { name: string; url: string; _id: Types.ObjectId }[];
+
 
   // Estos campos los maneja Mongoose automáticamente si usas timestamps,
   // pero aquí los puedes referenciar como alias si lo deseas:
@@ -100,3 +108,4 @@ export class Ticket {
 
 export type TicketDocument = Ticket & Document;
 export const TicketSchema = SchemaFactory.createForClass(Ticket);
+

@@ -10,6 +10,7 @@ import { Request } from 'express';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { multerOptions } from 'src/common/utils/multer.diskStorage';
 import { Ticket } from 'src/schemas/ticket.schema';
+import { Cookie } from 'src/common/decorators/cookie.decorador';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard)
@@ -129,16 +130,10 @@ export class TicketsController {
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async crearTicket(
         @Req() req: any,
+        @Cookie('access_token') token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() dto: CreateTicketDto,      // <-- mapea y valida directo
     ): Promise<Ticket> {
-        dto.Files = files.map(f => ({
-            name: f.originalname,
-            url: `/temp/${f.filename}`,
-            _id: f.filename,
-        }));
-        
-        return this.postticketsService.crearTicket(dto, req.user);
-    }
-
+        return this.postticketsService.crearTicket(dto, req.user, token, files);
+    };
 };

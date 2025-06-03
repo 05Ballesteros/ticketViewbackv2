@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Estado } from 'src/schemas/estados.schema';
 import { Model, Types } from 'mongoose';
@@ -468,33 +468,31 @@ export class GetTicketsService {
         return formattedTickets;
     }
 
-    //Se utiliza para obtener el estado según el rol del asignado.
-    async getestadoTicket(Rol: any) {
-        try {
-            if (Rol === "Root" || Rol === "Administrador") {
-                const Estado = await this.estadoModel.findOne({ Estado: "STANDBY" });
-                return Estado;
-            } else if (Rol === "Moderador") {
-                const Estado = await this.estadoModel.findOne({ Estado: "NUEVOS" });
-                return Estado;
-            } else {
-                const Estado = await this.estadoModel.findOne({ Estado: "ABIERTOS" });
-                return Estado;
-            }
-            if (!Estado) {
-                console.error("Estado no encontrado.");
-                throw new Error("No se encontró ningún estado con 'STANDBY'");
-            }
-        } catch (error) {
-            throw new HttpException(
-                { message: 'Error interno al obtener el estado.', details: error.message },
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
-        }
-    };
+
     //Obtiene todos los datos de la categorización por medio de la subcategoria en string
     async getCategorizacion(Subcategoria: any) {
         const Categorizacion = await this.categorizacionModel.findById({ _id: Subcategoria });
         return Categorizacion;
     };
+
+    //Esta función si se utiliza
+    async getestadoTicket(dto: any) {
+        try {
+            let estado;
+
+            if (dto.hasResolutor) {
+                estado = await this.estadoModel.findOne({ Estado: "ABIERTOS" }).select("_id");
+            } else if (dto.standby) {
+                estado = await this.estadoModel.findOne({ Estado: "STANDBY" }).select("_id");
+            } else {
+                estado = await this.estadoModel.findOne({ Estado: "NUEVOS" }).select("_id");
+            }
+
+            dto.Estado = estado;
+            return dto;
+        } catch (error) {
+            throw new BadRequestException("No se encontró el estado.");
+        }
+    };
+
 };

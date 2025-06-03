@@ -6,7 +6,7 @@ export class Usuario extends Document {
   @Prop({ type: String, required: true })
   Username: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: true, select: false})
   Password: string;
 
   @Prop({ type: String, required: true })
