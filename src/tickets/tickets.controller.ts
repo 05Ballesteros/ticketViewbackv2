@@ -11,13 +11,38 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { multerOptions } from 'src/common/utils/multer.diskStorage';
 import { Ticket } from 'src/schemas/ticket.schema';
 import { Cookie } from 'src/common/decorators/cookie.decorador';
+import { PutTicketsService } from './services/puttickets.service';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard)
 export class TicketsController {
     constructor(
         private readonly getticketsService: GetTicketsService,
-        private readonly postticketsService: PostTicketsService,) { }
+        private readonly postticketsService: PostTicketsService,
+        private readonly putticketsService: PutTicketsService, ) { }
+
+    @Post('crear/ticket')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async crearTicket(
+        @Req() req: any,
+        @Cookie('access_token') token: string,
+        @UploadedFiles() files: Express.Multer.File[],
+        @Body() dto: CreateTicketDto,      // <-- mapea y valida directo
+    ): Promise<Ticket> {
+        return this.postticketsService.crearTicket(dto, req.user, token, files);
+    };
+
+    @Post('asignar/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async asignarTicket(
+        @Req() req: any,
+        @Cookie('access_token') token: string,
+        @UploadedFiles() files: Express.Multer.File[],
+        @Body() dto: CreateTicketDto,  //Crear un Dto para asignación
+    ): Promise<Ticket> {
+        return this.putticketsService.asgnarTicket(dto, req.user, token, files);
+    };
+
     @Get('estado/:estado')
     getTickets(@Param('estado') estado: string,
         @Req() req: any,) {
@@ -126,14 +151,4 @@ export class TicketsController {
         }
     };
 
-    @Post('crear/ticket')
-    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
-    async crearTicket(
-        @Req() req: any,
-        @Cookie('access_token') token: string,
-        @UploadedFiles() files: Express.Multer.File[],
-        @Body() dto: CreateTicketDto,      // <-- mapea y valida directo
-    ): Promise<Ticket> {
-        return this.postticketsService.crearTicket(dto, req.user, token, files);
-    };
 };

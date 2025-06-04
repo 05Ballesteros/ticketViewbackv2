@@ -22,6 +22,7 @@ import { DireccionArea, DireccionAreaSchema } from 'src/schemas/direccionarea.sc
 import { UserService } from './services/user.service';
 import { ClienteService } from './services/cliente.service';
 import { CorreoService } from './services/correos.service';
+import { PutTicketsService } from './services/puttickets.service';
 
 const mongooseSchemas = [
   { name: Ticket.name, schema: TicketSchema },
@@ -43,7 +44,7 @@ const mongooseSchemas = [
 ];
 @Module({
   imports: [MongooseModule.forFeature(mongooseSchemas)],
-  providers: [GetTicketsService, PostTicketsService, UserService, ClienteService, CorreoService],
+  providers: [GetTicketsService, PostTicketsService, UserService, ClienteService, CorreoService, PutTicketsService ],
   controllers: [TicketsController]
 })
 export class TicketsModule { };

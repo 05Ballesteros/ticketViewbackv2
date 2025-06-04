@@ -18,7 +18,7 @@ import { channel } from 'diagnostics_channel';
 
 
 @Injectable()
-export class PostTicketsService {
+export class PutTicketsService {
     constructor(
         private readonly getticketsService: GetTicketsService,
         private readonly userService: UserService,
@@ -27,8 +27,7 @@ export class PostTicketsService {
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
     ) { }
-    async crearTicket(dto: any, user: any, token: string, files: any): Promise<Ticket> {
-        console.log("dto", dto);
+    async asgnarTicket(dto: any, user: any, token: string, files: any): Promise<Ticket> {
         try {
             //1.-Verificar el asignado
             const dtoAsignado = await this.userService.verificarAsignado(dto);
