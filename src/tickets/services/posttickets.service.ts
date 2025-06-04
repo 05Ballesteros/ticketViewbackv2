@@ -1,7 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import { Estado } from 'src/schemas/estados.schema';
-import { Model, Types } from 'mongoose';
 import { Ticket } from 'src/schemas/ticket.schema';
 import { Usuario } from 'src/schemas/usuarios.schema';
 import { GetTicketsService } from './gettickets.service';
@@ -15,7 +13,9 @@ import { ClienteService } from './cliente.service';
 import { Clientes } from 'src/schemas/cliente.schema';
 import { CorreoService } from './correos.service';
 import { channel } from 'diagnostics_channel';
-
+import { CounterService } from './counter.service';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Model, Connection, ClientSession, Types } from 'mongoose';
 
 @Injectable()
 export class PostTicketsService {
@@ -24,11 +24,14 @@ export class PostTicketsService {
         private readonly userService: UserService,
         private readonly clienteService: ClienteService,
         private readonly correoService: CorreoService,
+        private readonly counterService: CounterService,
+        @InjectConnection() private readonly connection: Connection,
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
     ) { }
     async crearTicket(dto: any, user: any, token: string, files: any): Promise<Ticket> {
-        console.log("dto", dto);
+        const session: ClientSession = await this.connection.startSession();
+        session.startTransaction();
         try {
             //1.-Verificar el asignado
             const dtoAsignado = await this.userService.verificarAsignado(dto);
@@ -64,10 +67,13 @@ export class PostTicketsService {
                 Fecha_hora_resolucion: fechaDefecto,
                 Fecha_hora_reabierto: fechaDefecto,
                 Historia_ticket: Historia_ticket,
+                Id: await this.counterService.getNextSequence('Id'),
             };
             //6.- Se guarda el ticket
             let ticketInstance = new this.ticketModel(data);
-            const savedTicket = await ticketInstance.save();
+            const savedTicket = await ticketInstance.save({ session });
+            await session.commitTransaction();
+            session.endSession();
             if (!savedTicket) { throw new BadRequestException('No se creó el ticket.'); }
             //7.- Se valida si el ticket se guardo correctamente y si hay archivos para guardar
             if (files.length > 0) {
