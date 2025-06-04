@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-@Schema({ collection: 'counters' })
+@Schema({ collection: 'Counters' })
 export class Counter {
   @Prop({ type: String, required: true })
   id: string;

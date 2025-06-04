@@ -51,7 +51,7 @@ export class PostTicketsService {
             const Historia_ticket = await historicoCreacion(user, asignado);
             let data = {
                 Cliente: new Types.ObjectId(dto.Cliente),
-                Medio: new Types.ObjectId(dto.Medio),
+                //Medio: new Types.ObjectId(dto.Medio),
                 Asignado_a: new Types.ObjectId(dto.Asignado_a),
                 Subcategoria: new Types.ObjectId(dto.Subcategoria),
                 Descripcion: dto.Descripcion,
@@ -111,6 +111,9 @@ export class PostTicketsService {
             }
             return savedTicket;
         } catch (error) {
+            await this.counterService.decrementSequence('Id');
+            await session.abortTransaction();
+            session.endSession();
             console.error("Error al crear el Ticket", error.message);
             throw new BadRequestException("Error interno del servidor.");
         }
