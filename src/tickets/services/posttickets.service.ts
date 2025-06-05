@@ -92,7 +92,7 @@ export class PostTicketsService {
             }
             //8.- Se genera el correoData
             let correoData = {
-                idTicket: "X",
+                idTicket: savedTicket.Id,
                 correoUsuario: asignado?.Correo,
                 correoCliente: cliente?.Correo,
                 extensionCliente: cliente?.Extension,

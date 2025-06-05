@@ -13,6 +13,7 @@ import { Ticket } from 'src/schemas/ticket.schema';
 import { Cookie } from 'src/common/decorators/cookie.decorador';
 import { PutTicketsService } from './services/puttickets.service';
 import { AsignarTicketDto } from './dto/asignar-ticket.dto';
+import { Token } from 'src/common/decorators/token.decorator';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard)
@@ -23,14 +24,15 @@ export class TicketsController {
         private readonly putticketsService: PutTicketsService, ) { }
 
     @Post('crear/ticket')
+    @UseGuards(JwtAuthGuard)
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async crearTicket(
         @Req() req: any,
-        @Cookie('access_token') token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() dto: CreateTicketDto,      // <-- mapea y valida directo
+        @Token() token: string,
     ): Promise<Ticket> {
-        return this.postticketsService.crearTicket(dto, req.user, token, files);
+        return this.postticketsService.crearTicket(dto, req.user,token, files);
     };
 
     @Post('asignar/:id')
@@ -146,6 +148,19 @@ export class TicketsController {
     async getTicketsPorId(@Param('id') id: string) {
         try {
             return this.getticketsService.getTicketsPorId(id);
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    };
+
+    @Get('calendario')
+    async getCalendario(@Req() req: any) {
+        try {
+            const {areas, userId} = req.user;
+            return this.getticketsService.getCalendario(areas, userId);
         } catch (error) {
             throw new HttpException(
                 { message: 'Error interno al obtener los tickets.', details: error.message },

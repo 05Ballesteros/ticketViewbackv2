@@ -25,7 +25,6 @@ import { DireccionArea } from 'src/schemas/direccionarea.schema';
 import { Medio } from 'src/schemas/mediocontacto.schema';
 import { Categorizacion } from 'src/schemas/categorizacion.schema';
 import { sub } from 'date-fns';
-
 @Injectable()
 export class GetTicketsService {
     constructor(
@@ -421,7 +420,7 @@ export class GetTicketsService {
             const [AREAS_, MEDIO_, CATEGORIZACION_] = await Promise.all([
                 this.areaModel.find().sort({ Area: 1 }).exec(),
                 this.medioModel.find().sort({ Medio: 1 }).exec(),
-                this.categorizacionModel.find().sort({ Subcategoria: 1 }).populate({ path: 'Equipo' }).exec(),
+                this.categorizacionModel.find().sort({ Subcategoria: 1 }).populate({ path: 'Equipo' }).lean().exec(),
             ]);
 
             const resolutores = await Promise.all(
@@ -495,12 +494,21 @@ export class GetTicketsService {
         }
     };
 
-    async getEstado(Estado : string) {
+    async getCalendario(areas: string[], userId: string) {
+        const sanitizedAreas = areas.map((a) => new Types.ObjectId(a))
         try {
-            const RES = await this.estadoModel.findOne({ Estado });
-            return RES?._id;
+            const result = await this.ticketModel.find({
+                $and: [
+                    {$or: [{Asignado_a: new Types.ObjectId(userId)}, {Reasignado_a: new Types.ObjectId(userId)}]},
+                    {$or: [{Area: {$in: sanitizedAreas}},{AreaTicket: {$in: sanitizedAreas}}]}
+                ]}).select("Id Fecha_limite_resolucion_SLA Subcategoria");
+                
+    const populatedResult = await this.ticketModel.populate(result, [
+      { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
+    ]);
+    return populatedResult
         } catch (error) {
-            return false;
+            throw new BadRequestException("No se encontraron tickets");
         }
     };
 
