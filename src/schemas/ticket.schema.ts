@@ -5,7 +5,7 @@ import { HistoryItem, HistoryItemSchema } from './history-item.schema';
 
 @Schema({ collection: 'Tickets' }) // Nombre correcto de la colección
 export class Ticket {
-  @Prop({ type: Types.ObjectId, ref: 'Cliente', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Clientes', required: true })
   Cliente: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Estado', required: true })

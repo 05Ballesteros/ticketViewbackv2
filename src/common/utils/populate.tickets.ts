@@ -7,7 +7,7 @@ export async function populateTickets(tickets: any[]): Promise<any[]> {
                     { path: 'Area', select: 'Area' },
                     { path: 'Estado', select: 'Estado' },
                     { path: 'Medio', select: 'Medio' },
-                    { path: 'Subcategoria', select: 'Subcategoria' },
+                    { path: 'Subcategoria' },
                 ]);
             })
         );

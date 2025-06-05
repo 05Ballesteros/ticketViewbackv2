@@ -502,13 +502,15 @@ export class GetTicketsService {
                     { $or: [{ Asignado_a: new Types.ObjectId(userId) }, { Reasignado_a: new Types.ObjectId(userId) }] },
                     { $or: [{ Area: { $in: sanitizedAreas } }, { AreaTicket: { $in: sanitizedAreas } }] }
                 ]
-            }).select("Id Fecha_limite_resolucion_SLA Subcategoria");
+            }).select("Id Fecha_limite_resolucion_SLA Subcategoria Descripcion Cliente");
 
             const populatedResult = await this.ticketModel.populate(result, [
                 { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
+                { path: "Cliente", select: "Nombre Correo -_id" },
             ]);
             return populatedResult
         } catch (error) {
+            console.log(error);
             throw new BadRequestException("No se encontraron tickets");
         }
     };
