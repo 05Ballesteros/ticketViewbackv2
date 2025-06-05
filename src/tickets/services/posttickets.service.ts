@@ -51,7 +51,7 @@ export class PostTicketsService {
             const Historia_ticket = await historicoCreacion(user, asignado);
             let data = {
                 Cliente: new Types.ObjectId(dto.Cliente),
-                //Medio: new Types.ObjectId(dto.Medio),
+                Medio: new Types.ObjectId(dto.Medio),
                 Asignado_a: new Types.ObjectId(dto.Asignado_a),
                 Subcategoria: new Types.ObjectId(dto.Subcategoria),
                 Descripcion: dto.Descripcion,
@@ -92,7 +92,7 @@ export class PostTicketsService {
             }
             //8.- Se genera el correoData
             let correoData = {
-                idTicket: "X",
+                idTicket: savedTicket.Id,
                 correoUsuario: asignado?.Correo,
                 correoCliente: cliente?.Correo,
                 extensionCliente: cliente?.Extension,

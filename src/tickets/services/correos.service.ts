@@ -14,6 +14,8 @@ export class CorreoService {
                 channel: channel,
                 message: correoData,
             };
+
+            console.log("lo que se envia al correo", message, token);
             
             // Enviar solicitud HTTP
             const response = await axios.post(

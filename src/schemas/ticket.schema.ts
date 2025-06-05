@@ -20,7 +20,7 @@ export class Ticket {
   @Prop({ type: Types.ObjectId, ref: 'Usuario', required: true })
   Creado_por: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Subcategoria', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Categorizacion', required: true })
   Subcategoria: Types.ObjectId;
 
   @Prop({ type: String, required: true })
