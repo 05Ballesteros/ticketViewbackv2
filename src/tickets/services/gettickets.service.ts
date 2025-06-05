@@ -499,16 +499,32 @@ export class GetTicketsService {
         try {
             const result = await this.ticketModel.find({
                 $and: [
-                    {$or: [{Asignado_a: new Types.ObjectId(userId)}, {Reasignado_a: new Types.ObjectId(userId)}]},
-                    {$or: [{Area: {$in: sanitizedAreas}},{AreaTicket: {$in: sanitizedAreas}}]}
-                ]}).select("Id Fecha_limite_resolucion_SLA Subcategoria");
-                
-    const populatedResult = await this.ticketModel.populate(result, [
-      { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
-    ]);
-    return populatedResult
+                    { $or: [{ Asignado_a: new Types.ObjectId(userId) }, { Reasignado_a: new Types.ObjectId(userId) }] },
+                    { $or: [{ Area: { $in: sanitizedAreas } }, { AreaTicket: { $in: sanitizedAreas } }] }
+                ]
+            }).select("Id Fecha_limite_resolucion_SLA Subcategoria");
+
+            const populatedResult = await this.ticketModel.populate(result, [
+                { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
+            ]);
+            return populatedResult
         } catch (error) {
             throw new BadRequestException("No se encontraron tickets");
+        }
+    };
+
+    async getPerfil(userId: string) {
+        try {
+            const result = await this.usuarioModel.findOne({ _id: new Types.ObjectId(userId) }, { Password: 0, Rol: 0 });
+
+            const populatedResult = await this.ticketModel.populate(result, [
+                { path: "Area", select: "-_id" },
+                { path: "Dependencia", select: "-_id" },
+                { path: "Direccion_General", select: "-_id" },
+            ]);
+            return populatedResult
+        } catch (error) {
+            throw new BadRequestException("No se encontraro el usuario. Error interno en el servidor.");
         }
     };
 
