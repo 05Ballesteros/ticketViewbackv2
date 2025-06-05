@@ -1,12 +1,15 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { User } from 'src/common/Interfaces/interfacesparaconsulta';
+import { Rol } from 'src/schemas/roles.schema';
 import { Usuario } from 'src/schemas/usuarios.schema';
 
 @Injectable()
 export class UserService {
     constructor(
         @InjectModel(Usuario.name) private readonly usuarioModel: Model<Usuario>,
+        @InjectModel(Rol.name) private readonly rolModel: Model<Rol>,
     ) { }
     async verificarAsignado(dto: any) {
         try {
@@ -35,13 +38,73 @@ export class UserService {
         }
     };
 
-    async getAsignado(id: string){
+    async getAsignado(id: string) {
         try {
-           const asignado = await this.usuarioModel.findById({_id: new Types.ObjectId(id)}).select("-Pasword");
-           return asignado;
+            const asignado = await this.usuarioModel.findById({ _id: new Types.ObjectId(id) }).select("-Pasword");
+            return asignado;
         } catch (error) {
             throw new BadRequestException("No se encontro el Asignado");
         }
     };
 
+    async getareaAsignado(userId: any) {
+        try {
+            const result = await this.usuarioModel.findOne({ _id: userId }).lean();
+            if (!result) {
+                return false;
+            }
+            const areaUsuario = await this.usuarioModel.populate(result, [{ path: "Area" }]);
+            return areaUsuario.Area[0]?._id;
+        } catch (error) {
+            return false;
+        }
+    };
+
+    async getRolAsignado(userId: any): Promise<string | false> {
+        try {
+            const result = await this.usuarioModel
+                .findOne({ _id: userId })
+                .populate<{ Rol: { Rol: string } }>({ path: "Rol", select: "Rol" })
+                .lean<User>();
+
+            if (!result || !result.Rol) {
+                return false;
+            }
+
+            return result.Rol.Rol;
+        } catch (error) {
+            console.error("Error en getRolAsignado:", error.message);
+            return false;
+        }
+    };
+
+    async getRolModerador(Rol: string) {
+        try {
+            const result = await this.rolModel.findOne({ Rol }).lean();
+            if (!result) {
+                return null;
+            }
+            return result._id;
+        } catch (error) {
+            console.log("error", error);
+            return false;
+        }
+    };
+
+    async getModeradorPorAreayRol(Area: any, RolModerador: any) {
+        try {
+            const result = await this.usuarioModel.find({
+                Area,
+                Rol: RolModerador,
+            });
+            if (!result || result.length === 0) {
+                return false;
+            }
+            console.log(result[0]._id);
+            return result[0]._id;
+        } catch (error) {
+            console.error("Error al obtener moderadores:", error);
+            return false;
+        }
+    };
 };

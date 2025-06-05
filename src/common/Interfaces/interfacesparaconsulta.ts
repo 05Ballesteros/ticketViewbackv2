@@ -32,3 +32,8 @@ export interface ClienteConPopulates {
   Extension: string;
   Ubicacion: string;
 }
+
+export interface User {
+    _id: string;
+    Rol?: { Rol: string };
+}

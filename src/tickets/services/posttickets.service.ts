@@ -43,15 +43,13 @@ export class PostTicketsService {
             const Fecha_limite = calcularFechaResolucion(dto.Tiempo);
             //5.- Obtencion del asignado
             const asignado = await this.userService.getAsignado(dtoAsignado.Asignado_a);
-            console.log("Asignado", asignado);
             //6.- Se obtiene el cliente
             const cliente = await this.clienteService.getCliente(dto.Cliente);
-            console.log("Cliente", cliente);
             //5.- LLenado del hostorico
             const Historia_ticket = await historicoCreacion(user, asignado);
             let data = {
                 Cliente: new Types.ObjectId(dto.Cliente),
-                //Medio: new Types.ObjectId(dto.Medio),
+                Medio: new Types.ObjectId(dto.Medio),
                 Asignado_a: new Types.ObjectId(dto.Asignado_a),
                 Subcategoria: new Types.ObjectId(dto.Subcategoria),
                 Descripcion: dto.Descripcion,
@@ -70,15 +68,17 @@ export class PostTicketsService {
                 Id: await this.counterService.getNextSequence('Id'),
             };
             //6.- Se guarda el ticket
+            console.log("Guardando ticket");
             let ticketInstance = new this.ticketModel(data);
             const savedTicket = await ticketInstance.save({ session });
             await session.commitTransaction();
             session.endSession();
             if (!savedTicket) { throw new BadRequestException('No se creó el ticket.'); }
+            console.log("Ticket guardado correctamente");
             //7.- Se valida si el ticket se guardo correctamente y si hay archivos para guardar
             if (files.length > 0) {
-                console.log("Ticket guardado correctamente");
                 const { data: uploadedFiles } = await guardarArchivos(token, files);
+                if(uploadedFiles){console.log("Archivos guardados correctamente");}
                 const updatedTicket = await this.ticketModel.findByIdAndUpdate(
                     { _id: ticketInstance._id },
                     { $push: { Files: { $each: uploadedFiles.map((file) => ({ ...file, _id: new Types.ObjectId(), })), }, }, },
@@ -102,7 +102,6 @@ export class PostTicketsService {
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
             };
-            console.log("CorreoData", correoData);
             //9.- Enviar correos
             const channel = "channel_crearTicket";
             const correo = await this.correoService.enviarCorreo(correoData, channel, token);

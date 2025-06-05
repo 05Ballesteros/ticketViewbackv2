@@ -495,4 +495,13 @@ export class GetTicketsService {
         }
     };
 
+    async getEstado(Estado : string) {
+        try {
+            const RES = await this.estadoModel.findOne({ Estado });
+            return RES?._id;
+        } catch (error) {
+            return false;
+        }
+    };
+
 };

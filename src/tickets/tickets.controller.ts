@@ -12,6 +12,7 @@ import { multerOptions } from 'src/common/utils/multer.diskStorage';
 import { Ticket } from 'src/schemas/ticket.schema';
 import { Cookie } from 'src/common/decorators/cookie.decorador';
 import { PutTicketsService } from './services/puttickets.service';
+import { AsignarTicketDto } from './dto/asignar-ticket.dto';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard)
@@ -35,16 +36,18 @@ export class TicketsController {
     @Post('asignar/:id')
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async asignarTicket(
+        @Param('id') id: string,
         @Req() req: any,
         @Cookie('access_token') token: string,
         @UploadedFiles() files: Express.Multer.File[],
-        @Body() dto: CreateTicketDto,  //Crear un Dto para asignación
+        @Body() ticketData: AsignarTicketDto,  //Crear un Dto para asignación
     ): Promise<Ticket> {
-        return this.putticketsService.asgnarTicket(dto, req.user, token, files);
+        return this.putticketsService.asgnarTicket(ticketData, req.user, token, files, id);
     };
 
     @Get('estado/:estado')
-    getTickets(@Param('estado') estado: string,
+    getTickets(
+        @Param('estado') estado: string,
         @Req() req: any,) {
         const user = req.user;
         return this.getticketsService.getTickets(estado, user);
