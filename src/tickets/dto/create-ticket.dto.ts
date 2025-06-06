@@ -1,5 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsString, IsBoolean, IsDate, IsArray, IsOptional, IsMongoId, IsNumber, IsNotEmpty, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsDate,
+  IsArray,
+  IsOptional,
+  IsMongoId,
+  IsNumber,
+  IsNotEmpty,
+  ValidateNested,
+} from 'class-validator';
 
 export class FileDto {
   @IsString()
@@ -41,5 +51,4 @@ export class CreateTicketDto {
   @Type(() => FileDto)
   @IsOptional()
   Files?: FileDto[];
-
 }

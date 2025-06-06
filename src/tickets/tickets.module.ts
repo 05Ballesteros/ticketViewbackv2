@@ -47,7 +47,15 @@ const mongooseSchemas = [
 ];
 @Module({
   imports: [MongooseModule.forFeature(mongooseSchemas)],
-  providers: [GetTicketsService, PostTicketsService, UserService, ClienteService, CorreoService, PutTicketsService, CounterService ],
-  controllers: [TicketsController]
+  providers: [
+    GetTicketsService,
+    PostTicketsService,
+    UserService,
+    ClienteService,
+    CorreoService,
+    PutTicketsService,
+    CounterService,
+  ],
+  controllers: [TicketsController],
 })
-export class TicketsModule { };
+export class TicketsModule {}

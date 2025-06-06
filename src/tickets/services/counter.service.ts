@@ -5,25 +5,25 @@ import { Model } from 'mongoose';
 
 @Injectable()
 export class CounterService {
-    constructor(
-        @InjectModel('Counter') private readonly counterModel: Model<any>, // Ajusta el tipo si tienes una interfaz
-    ) { }
+  constructor(
+    @InjectModel('Counter') private readonly counterModel: Model<any>, // Ajusta el tipo si tienes una interfaz
+  ) {}
 
-    async getNextSequence(sequenceId: string): Promise<number> {
-        const updatedCounter = await this.counterModel.findOneAndUpdate(
-            { id: sequenceId }, // Buscar por el campo `id`
-            { $inc: { seq: 1 } }, // Incrementar el campo `seq`
-            { new: true, upsert: true } // Crear el documento si no existe
-        );
+  async getNextSequence(sequenceId: string): Promise<number> {
+    const updatedCounter = await this.counterModel.findOneAndUpdate(
+      { id: sequenceId }, // Buscar por el campo `id`
+      { $inc: { seq: 1 } }, // Incrementar el campo `seq`
+      { new: true, upsert: true }, // Crear el documento si no existe
+    );
 
-        if (!updatedCounter) {
-            throw new Error(`No se pudo incrementar el contador para ${sequenceId}`);
-        }
-
-        return updatedCounter.seq; // Devolver el valor incrementado
+    if (!updatedCounter) {
+      throw new Error(`No se pudo incrementar el contador para ${sequenceId}`);
     }
 
-    async decrementSequence(id: string): Promise<void> {
-        await this.counterModel.updateOne({ id }, { $inc: { seq: -1 } });
-    }
+    return updatedCounter.seq; // Devolver el valor incrementado
+  }
+
+  async decrementSequence(id: string): Promise<void> {
+    await this.counterModel.updateOne({ id }, { $inc: { seq: -1 } });
+  }
 }

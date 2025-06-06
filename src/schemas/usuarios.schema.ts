@@ -24,32 +24,32 @@ export class Usuario extends Document {
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
-  @Prop({ type: Types.ObjectId, ref: "Dependencia", default: "679b8a12c9c34d1de358f1cd" })
+  @Prop({ type: Types.ObjectId, ref: 'Dependencia', default: '679b8a12c9c34d1de358f1cd' })
   Dependencia: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: "DireccionGeneral" })
+  @Prop({ type: Types.ObjectId, ref: 'DireccionGeneral' })
   Direccion_General: Types.ObjectId;
 
-  @Prop({ type: String, default: "Dirección de informática - Piso 6" })
+  @Prop({ type: String, default: 'Dirección de informática - Piso 6' })
   Ubicacion: string;
 
-  @Prop({ type: String, default: "0000000000" })
+  @Prop({ type: String, default: '0000000000' })
   Telefono: string;
 
-  @Prop({ type: String, default: "Empleado" })
+  @Prop({ type: String, default: 'Empleado' })
   Puesto: string;
 
-  @Prop({ type: String, default: "00000" })
+  @Prop({ type: String, default: '00000' })
   Extension: string;
 
   @Prop({
-    Pais: { type: String, default: "México" },
-    Ciudad: { type: String, default: "Guadalajara/Jalisco" },
-    codigoPostal: { type: String, default: "44266" }
+    Pais: { type: String, default: 'México' },
+    Ciudad: { type: String, default: 'Guadalajara/Jalisco' },
+    codigoPostal: { type: String, default: '44266' },
   })
-  Pais: string
-  Ciudad: string
-  codigoPostal: string
+  Pais: string;
+  Ciudad: string;
+  codigoPostal: string;
 
   @Prop({
     type: {

@@ -6,20 +6,16 @@ import { ClienteConPopulates, DireccionArea } from 'src/common/Interfaces/interf
 
 @Injectable()
 export class ClienteService {
-    constructor(
-        @InjectModel(Clientes.name) private readonly clienteModel: Model<Clientes>,
-    ) { }
+  constructor(@InjectModel(Clientes.name) private readonly clienteModel: Model<Clientes>) {}
 
-    async getCliente(id: string) {
-        try {
-            return await this.clienteModel
-                .findOne(new Types.ObjectId(id))
-                .populate<{ direccion_area: DireccionArea }>("direccion_area")
-                .exec() as ClienteConPopulates;
-
-        } catch (error) {
-            throw new BadRequestException("No se encontro el Cliente");
-        }
-    };
-
-};
+  async getCliente(id: string) {
+    try {
+      return (await this.clienteModel
+        .findOne(new Types.ObjectId(id))
+        .populate<{ direccion_area: DireccionArea }>('direccion_area')
+        .exec()) as ClienteConPopulates;
+    } catch (error) {
+      throw new BadRequestException('No se encontro el Cliente');
+    }
+  }
+}

@@ -11,12 +11,12 @@ async function bootstrap() {
     fs.mkdirSync(uploadPath, { recursive: true });
   }
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix("api/v1");
+  app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,       // elimina propiedades no definidas en el DTO
+      whitelist: true, // elimina propiedades no definidas en el DTO
       forbidNonWhitelisted: true, // arroja error si llegan campos extras
-      transform: true        // convierte payloads a instancias de clases
+      transform: true, // convierte payloads a instancias de clases
     }),
   );
   await app.listen(process.env.PORT ?? 4201);

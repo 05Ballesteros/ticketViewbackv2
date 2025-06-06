@@ -4,7 +4,7 @@ import { Types } from 'mongoose';
 
 @Schema({ _id: true })
 export class HistoryItem {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Usuario', required: true })
   Nombre: Types.ObjectId;
 
   @Prop({ type: String, required: true })

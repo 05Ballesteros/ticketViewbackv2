@@ -1,4 +1,11 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+    BadRequestException,
+    HttpException,
+    HttpStatus,
+    NotFoundException,
+    InternalServerErrorException,
+    Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Estado } from 'src/schemas/estados.schema';
 import { Model, Types } from 'mongoose';
@@ -25,6 +32,39 @@ import { DireccionArea } from 'src/schemas/direccionarea.schema';
 import { Medio } from 'src/schemas/mediocontacto.schema';
 import { Categorizacion } from 'src/schemas/categorizacion.schema';
 import { sub } from 'date-fns';
+
+interface Cliente {
+    _id: Types.ObjectId;
+    Nombre: string;
+    Correo: string;
+    Dependencia: Types.ObjectId;
+    Direccion_General: Types.ObjectId;
+    direccion_area: Types.ObjectId;
+    Telefono: string;
+    Extension?: string;
+    Ubicacion?: string;
+}
+
+interface UsuarioI {
+    _id: Types.ObjectId;
+    Nombre: string;
+    Correo: string;
+    isActive: boolean;
+    Area: string[];
+    Rol: string;
+    Dependencia: Types.ObjectId;
+    Direccion_General: Types.ObjectId;
+    Direccion: {
+        Pais: string;
+        Ciudad: string;
+        codigoPostal: string;
+    };
+    Telefono: string;
+    Extension?: string;
+    Puesto: string;
+    Ubicacion?: string;
+}
+
 @Injectable()
 export class GetTicketsService {
     constructor(
@@ -36,7 +76,8 @@ export class GetTicketsService {
         @InjectModel(Dependencia.name) private readonly depedenciaModel: Model<Dependencia>,
         @InjectModel(Clientes.name) private readonly clienteModel: Model<Clientes>,
         @InjectModel(DireccionArea.name) private readonly direccionAreaModel: Model<DireccionArea>,
-        @InjectModel(DireccionGeneral.name) private readonly direcciongeneralModel: Model<DireccionGeneral>,
+        @InjectModel(DireccionGeneral.name)
+        private readonly direcciongeneralModel: Model<DireccionGeneral>,
         @InjectModel(Area.name) private readonly areaModel: Model<Area>,
         @InjectModel(Medio.name) private readonly medioModel: Model<Medio>,
         @InjectModel(Categorizacion.name) private readonly categorizacionModel: Model<Categorizacion>,
@@ -47,21 +88,43 @@ export class GetTicketsService {
         let result: TicketDocument[] = [];
         const { rol, areas } = user;
         const userObjectId = new Types.ObjectId(user.userId);
-        const estadoticket = await this.estadoModel.findOne({ Estado: { $regex: new RegExp(`^${estado}$`, 'i') } }).select('_id').exec();
+        const estadoticket = await this.estadoModel
+            .findOne({ Estado: { $regex: new RegExp(`^${estado}$`, 'i') } })
+            .select('_id')
+            .exec();
         console.log(estadoticket);
-        if (rol === "Usuario") {
-            result = await this.ticketModel.find({ Reasignado_a: userObjectId, Estado: estadoticket?._id }).populate('Reasignado_a').exec();
-        } else if (rol === "Moderador") {
-            if (estado === "NUEVOS") {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id }).exec();
-            } else if (estado === "REVISION") {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id, Area: areas });
-            } else if (estado === "ABIERTOS") {
-                result = await this.ticketModel.find({ Reasignado_a: userObjectId, Estado: estadoticket?._id });
-            } else if (estado === "REABIERTOS") {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id });
+        if (rol === 'Usuario') {
+            result = await this.ticketModel
+                .find({ Reasignado_a: userObjectId, Estado: estadoticket?._id })
+                .populate('Reasignado_a')
+                .exec();
+        } else if (rol === 'Moderador') {
+            if (estado === 'NUEVOS') {
+                result = await this.ticketModel
+                    .find({ Asignado_a: userObjectId, Estado: estadoticket?._id })
+                    .exec();
+            } else if (estado === 'REVISION') {
+                result = await this.ticketModel.find({
+                    Asignado_a: userObjectId,
+                    Estado: estadoticket?._id,
+                    Area: areas,
+                });
+            } else if (estado === 'ABIERTOS') {
+                result = await this.ticketModel.find({
+                    Reasignado_a: userObjectId,
+                    Estado: estadoticket?._id,
+                });
+            } else if (estado === 'REABIERTOS') {
+                result = await this.ticketModel.find({
+                    Asignado_a: userObjectId,
+                    Estado: estadoticket?._id,
+                });
             } else {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Reasignado_a: userObjectId, Estado: estadoticket?._id });
+                result = await this.ticketModel.find({
+                    Asignado_a: userObjectId,
+                    Reasignado_a: userObjectId,
+                    Estado: estadoticket?._id,
+                });
             }
         } else {
             result = await this.ticketModel.find({ Estado: estadoticket?._id });
@@ -69,7 +132,7 @@ export class GetTicketsService {
         const populatedTickets = await populateTickets(result);
         const formattedTickets = populatedTickets.map(formatDates);
         return formattedTickets.length ? formattedTickets : null;
-    };
+    }
 
     async getReabrirFields() {
         try {
@@ -77,7 +140,7 @@ export class GetTicketsService {
             const prioridades = await this.prioridadModel.find().exec();
 
             if (!areas.length || !prioridades.length) {
-                throw new Error("No se encontraron áreas o prioridades.");
+                throw new Error('No se encontraron áreas o prioridades.');
             }
 
             const moderadores = await Promise.all(
@@ -87,59 +150,61 @@ export class GetTicketsService {
                             Area: area._id,
                             isActive: true,
                         })
-                        .select("Nombre")
+                        .select('Nombre')
                         .exec();
 
                     return {
                         area: { area: area.Area, _id: area._id },
                         resolutores,
                     };
-                })
+                }),
             );
 
             if (!moderadores.length) {
-                throw new Error("No se encontraron moderadores.");
+                throw new Error('No se encontraron moderadores.');
             }
 
-            console.log("Moderadores:", moderadores);
+            console.log('Moderadores:', moderadores);
             return { prioridades, moderadores };
         } catch (error) {
-            console.error("Error al obtener los campos de reabrir:", error.message);
-            throw new Error("Error interno del servidor.");
+            console.error('Error al obtener los campos de reabrir:', error.message);
+            throw new Error('Error interno del servidor.');
         }
-    };
+    }
 
     async getareasAsignacion() {
         try {
-            const moderador = await this.rolModel.findOne({ Rol: "Moderador" }).exec();
-            const administrador = await this.rolModel.findOne({ Rol: "Administrador" }).exec();
+            const moderador = await this.rolModel.findOne({ Rol: 'Moderador' }).exec();
+            const administrador = await this.rolModel.findOne({ Rol: 'Administrador' }).exec();
             const AREAS = await this.areaModel.find().exec();
             const prioridades = await this.prioridadModel.find().exec();
             if (!AREAS) {
-                throw new Error("No se encontraron áreas.");
+                throw new Error('No se encontraron áreas.');
             }
             const AREASRESOLUTORES = await Promise.all(
                 AREAS.map(async (area) => {
-                    const RESOLUTOR = await this.usuarioModel.find({
-                        isActive: true,
-                        Area: area._id,
-                        $or: [{ Rol: moderador?._id }, { Rol: administrador?._id }],
-                    }).select("Nombre Correo");
+                    const RESOLUTOR = await this.usuarioModel
+                        .find({
+                            isActive: true,
+                            Area: area._id,
+                            $or: [{ Rol: moderador?._id }, { Rol: administrador?._id }],
+                        })
+                        .select('Nombre Correo');
                     return {
                         area: { area: area.Area, _id: area._id },
                         resolutores: RESOLUTOR,
                     };
-                })
+                }),
             );
             if (!AREASRESOLUTORES) {
-                throw new Error("No se encontraron resolutores");
+                throw new Error('No se encontraron resolutores');
             }
             return { AREASRESOLUTORES, prioridades };
         } catch (error) {
-            console.error("Error al obtener los campos de reabrir:", error.message);
-            throw new Error("Error interno del servidor.");
+            console.error('Error al obtener los campos de reabrir:', error.message);
+            throw new Error('Error interno del servidor.');
         }
-    };
+    }
 
     async getareasReasignacion(user: any) {
         const { areas } = user;
@@ -148,47 +213,49 @@ export class GetTicketsService {
             const AREAS = await this.areaModel.find(filter).exec();
             const prioridades = await this.prioridadModel.find().exec();
             if (!AREAS || AREAS.length === 0) {
-                throw new Error("No se encontraron áreas.");
+                throw new Error('No se encontraron áreas.');
             }
 
             const AREASRESOLUTORES = await Promise.all(
                 AREAS.map(async (area) => {
-                    const RESOLUTOR = await this.usuarioModel.find({ isActive: true, Area: area._id }).select('Nombre Correo').exec();
+                    const RESOLUTOR = await this.usuarioModel
+                        .find({ isActive: true, Area: area._id })
+                        .select('Nombre Correo')
+                        .exec();
                     return {
                         area: { area: area.Area, _id: area._id },
                         resolutores: RESOLUTOR,
                     };
-                })
+                }),
             );
 
             if (!AREASRESOLUTORES || AREASRESOLUTORES.length === 0) {
-                throw new Error("No se encontraron resolutores.");
+                throw new Error('No se encontraron resolutores.');
             }
 
             return { AREASRESOLUTORES, prioridades };
         } catch (error) {
-            console.error("Error al obtener los campos de reabrir:", error.message);
-            throw new Error("Error interno del servidor.");
+            console.error('Error al obtener los campos de reabrir:', error.message);
+            throw new Error('Error interno del servidor.');
         }
-    };
+    }
 
     async getAreas() {
         try {
             const AREAS = await this.areaModel.find().exec();
             if (!AREAS) {
-                throw new Error("No se encontrarom areas.");
+                throw new Error('No se encontrarom areas.');
             }
             return { AREAS, tickets: [] };
-
         } catch (error) {
-            console.error("Error al obtener los campos de reabrir:", error.message);
-            throw new Error("Error interno del servidor.");
+            console.error('Error al obtener los campos de reabrir:', error.message);
+            throw new Error('Error interno del servidor.');
         }
-    };
+    }
 
     async getTicketsPorArea(area: string): Promise<Ticket[]> {
         try {
-            const [areaDoc] = await this.areaModel.find({ Area: area }).select("_id").exec();
+            const [areaDoc] = await this.areaModel.find({ Area: area }).select('_id').exec();
             const Area = areaDoc._id;
             const tickets = await this.ticketModel.find({ Area }).exec();
             const populatedTickets = await populateTickets(tickets);
@@ -200,12 +267,14 @@ export class GetTicketsService {
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
-    };
+    }
 
     async getTicketsResolutor(userid: string) {
-        const tickets = await this.ticketModel.find({ Reasignado_a: new Types.ObjectId(userid) }).exec();
+        const tickets = await this.ticketModel
+            .find({ Reasignado_a: new Types.ObjectId(userid) })
+            .exec();
         if (!tickets.length) {
-            throw new Error("No se encontraron tickets de este resolutor.");
+            throw new Error('No se encontraron tickets de este resolutor.');
         }
 
         const populatedTickets = await populateTickets(tickets);
@@ -264,44 +333,44 @@ export class GetTicketsService {
                 { header: 'ID', key: 'Id', width: 25 },
                 { header: 'Fecha Creacion', key: 'Fecha_creacion', width: 25 },
                 { header: 'Fecha Cierre', key: 'Fecha_hora_cierre', width: 25 },
-                { header: "Oficio recepcion", key: "NumeroRec_Oficio", width: 25 },
-                { header: "Oficio cierre", key: "Numero_Oficio", width: 25 },
-                { header: "Estado", key: "Estado", width: 25 },
-                { header: "Area", key: "Area", width: 25 },
-                { header: "Tipo incidencia", key: "Tipo_incidencia", width: 25 },
-                { header: "Servicio", key: "Servicio", width: 25 },
-                { header: "Categoría", key: "Categoria", width: 25 },
-                { header: "Subcategoría", key: "Subcategoria", width: 25 },
-                { header: "Descripcion", key: "Descripcion", width: 25 },
-                { header: "Prioridad", key: "Prioridad", width: 25 },
-                { header: "Fecha limite de resolucion", key: "Fecha_lim_res", width: 25 },
-                { header: "Creado por", key: "Creado_por", width: 25 },
-                { header: "Area creado por", key: "Area_creado_por", width: 25 },
-                { header: "Asignado a", key: "Asignado_a", width: 25 },
-                { header: "Area asignado", key: "Area_asignado", width: 25 },
-                { header: "Reasignado a", key: "Reasignado_a", width: 25 },
-                { header: "Area reasignado", key: "Area_reasignado_a", width: 25 },
+                { header: 'Oficio recepcion', key: 'NumeroRec_Oficio', width: 25 },
+                { header: 'Oficio cierre', key: 'Numero_Oficio', width: 25 },
+                { header: 'Estado', key: 'Estado', width: 25 },
+                { header: 'Area', key: 'Area', width: 25 },
+                { header: 'Tipo incidencia', key: 'Tipo_incidencia', width: 25 },
+                { header: 'Servicio', key: 'Servicio', width: 25 },
+                { header: 'Categoría', key: 'Categoria', width: 25 },
+                { header: 'Subcategoría', key: 'Subcategoria', width: 25 },
+                { header: 'Descripcion', key: 'Descripcion', width: 25 },
+                { header: 'Prioridad', key: 'Prioridad', width: 25 },
+                { header: 'Fecha limite de resolucion', key: 'Fecha_lim_res', width: 25 },
+                { header: 'Creado por', key: 'Creado_por', width: 25 },
+                { header: 'Area creado por', key: 'Area_creado_por', width: 25 },
+                { header: 'Asignado a', key: 'Asignado_a', width: 25 },
+                { header: 'Area asignado', key: 'Area_asignado', width: 25 },
+                { header: 'Reasignado a', key: 'Reasignado_a', width: 25 },
+                { header: 'Area reasignado', key: 'Area_reasignado_a', width: 25 },
                 {
-                    header: "Respuesta cierre reasignado",
-                    key: "Respuesta_cierre_reasignado",
+                    header: 'Respuesta cierre reasignado',
+                    key: 'Respuesta_cierre_reasignado',
                     width: 25,
                 },
-                { header: "Resuelto_por", key: "Resuelto_por", width: 25 },
-                { header: "Area resuelto por", key: "Area_resuelto_por", width: 25 },
-                { header: "Cliente", key: "Cliente", width: 25 },
-                { header: "Correo cliente", key: "Correo_cliente", width: 25 },
-                { header: "Telefono cliente", key: "Telefono_cliente", width: 25 },
+                { header: 'Resuelto_por', key: 'Resuelto_por', width: 25 },
+                { header: 'Area resuelto por', key: 'Area_resuelto_por', width: 25 },
+                { header: 'Cliente', key: 'Cliente', width: 25 },
+                { header: 'Correo cliente', key: 'Correo_cliente', width: 25 },
+                { header: 'Telefono cliente', key: 'Telefono_cliente', width: 25 },
                 //{ header: "Extension cliente", key: "Extension_cliente", width: 25 },
-                { header: "Ubicacion cliente", key: "Ubicacion_cliente", width: 25 },
+                { header: 'Ubicacion cliente', key: 'Ubicacion_cliente', width: 25 },
                 //{ header: "Dependencia cliente", key: "Dependencia_cliente", width: 25 },
                 {
-                    header: "Direccion general cliente",
-                    key: "DireccionG_cliente",
+                    header: 'Direccion general cliente',
+                    key: 'DireccionG_cliente',
                     width: 25,
                 },
                 {
-                    header: "Direccion de area cliente",
-                    key: "DireccionA_cliente",
+                    header: 'Direccion de area cliente',
+                    key: 'DireccionA_cliente',
                     width: 25,
                 },
             ];
@@ -309,20 +378,20 @@ export class GetTicketsService {
             // 4️⃣ Agregar datos a las filas
             tickets.forEach((ticket) => {
                 worksheet.addRow({
-                    Id: ticket.Id || "",
-                    Fecha_creacion: ticket.Fecha_hora_creacion || "",
-                    Fecha_hora_cierre: ticket.Fecha_hora_cierre || "",
-                    NumeroRec_Oficio: ticket.NumeroRec_Oficio || "",
-                    Numero_Oficio: ticket.Numero_Oficio || "",
-                    Estado: ticket.Estado || "",
+                    Id: ticket.Id || '',
+                    Fecha_creacion: ticket.Fecha_hora_creacion || '',
+                    Fecha_hora_cierre: ticket.Fecha_hora_cierre || '',
+                    NumeroRec_Oficio: ticket.NumeroRec_Oficio || '',
+                    Numero_Oficio: ticket.Numero_Oficio || '',
+                    Estado: ticket.Estado || '',
                     //Area: ticket.Subcategoria?.Equipo.Area || "",
                     //Tipo_incidencia: ticket.Subcategoria?.Tipo || "",
                     //Servicio: ticket.Subcategoria?.Servicio || "",
                     //Categoria: categoria,
                     //Subcategoria: ticket.Subcategoria?.Subcategoria || "",
-                    Descripcion: ticket.Descripcion || "",
+                    Descripcion: ticket.Descripcion || '',
                     //Prioridad: ticket.Subcategoria?.Descripcion_prioridad || "",
-                    Fecha_lim_res: ticket.Fecha_limite_resolucion_SLA || "",
+                    Fecha_lim_res: ticket.Fecha_limite_resolucion_SLA || '',
                     //Creado_por: ticket.Creado_por?.Nombre || "",
                     //Area_creado_por: Array.isArray(ticket.Creado_por?.Area)
                     // ? ticket.Creado_por.Area[0]?.Area
@@ -353,7 +422,6 @@ export class GetTicketsService {
                 });
             });
 
-
             // 5️⃣ Guardar el archivo Excel temporalmente
             const uploadPath = path.join(__dirname, '..', 'temp');
             if (!fs.existsSync(uploadPath)) {
@@ -375,9 +443,11 @@ export class GetTicketsService {
         const dependencias = await this.depedenciaModel.find().exec();
         const DEPENDENCIASCLIENTES = await Promise.all(
             dependencias.map(async (dependencia) => {
-                const clientes = await this.clienteModel.find({
-                    Dependencia: dependencia._id
-                }).exec();
+                const clientes = await this.clienteModel
+                    .find({
+                        Dependencia: dependencia._id,
+                    })
+                    .exec();
                 return {
                     Dependencia: {
                         Dependencia: dependencia.Dependencia,
@@ -385,26 +455,27 @@ export class GetTicketsService {
                     },
                     clientes,
                 };
-            })
+            }),
         );
 
         return DEPENDENCIASCLIENTES;
     }
 
     async getCorreos(id: string) {
-        const ticket = await this.ticketModel.findOne({ _id: new Types.ObjectId(id) })
+        const ticket = (await this.ticketModel
+            .findOne({ _id: new Types.ObjectId(id) })
             .populate([
                 { path: 'Asignado_a', select: 'Nombre Correo Coordinacion Area _id' },
-                { path: 'Cliente', select: 'Correo -_id' }
+                { path: 'Cliente', select: 'Correo -_id' },
             ])
-            .exec() as TicketPopulated | null;
+            .exec()) as TicketPopulated | null;
 
         if (!ticket) {
             throw new Error('No se encontraron correos.');
         }
 
         if (typeof ticket.Cliente === 'object' && 'Correo' in ticket.Cliente) {
-            const correoCliente = (ticket.Cliente as ClientePopulated).Correo;
+            const correoCliente = ticket.Cliente.Correo;
 
             return {
                 correoCliente,
@@ -420,22 +491,28 @@ export class GetTicketsService {
             const [AREAS_, MEDIO_, CATEGORIZACION_] = await Promise.all([
                 this.areaModel.find().sort({ Area: 1 }).exec(),
                 this.medioModel.find().sort({ Medio: 1 }).exec(),
-                this.categorizacionModel.find().sort({ Subcategoria: 1 }).populate({ path: 'Equipo' }).lean().exec(),
+                this.categorizacionModel
+                    .find()
+                    .sort({ Subcategoria: 1 })
+                    .populate({ path: 'Equipo' })
+                    .lean()
+                    .exec(),
             ]);
 
             const resolutores = await Promise.all(
                 AREAS_.map(async (area) => {
-                    const resolutor = await this.usuarioModel.find({
-                        Area: area._id,
-                        isActive: true,
-                    })
-                        .select("Nombre Correo")
-                        .sort({ Nombre: "asc" });
+                    const resolutor = await this.usuarioModel
+                        .find({
+                            Area: area._id,
+                            isActive: true,
+                        })
+                        .select('Nombre Correo')
+                        .sort({ Nombre: 'asc' });
                     return {
                         area: { area: area.Area, _id: area._id },
                         resolutores: resolutor,
                     };
-                })
+                }),
             );
             const groupedResolutores = resolutores.map((r) => ({
                 label: r.area.area,
@@ -443,7 +520,11 @@ export class GetTicketsService {
             }));
 
             const formatedMedio = MEDIO_.map((f) => ({ value: f._id, label: f.Medio }));
-            const formatedSubcategorias = CATEGORIZACION_.map((f) => ({ ...f, value: f._id, label: f.Subcategoria }));
+            const formatedSubcategorias = CATEGORIZACION_.map((f) => ({
+                ...f,
+                value: f._id,
+                label: f.Subcategoria,
+            }));
 
             return {
                 resolutores: groupedResolutores,
@@ -453,26 +534,23 @@ export class GetTicketsService {
         } catch (error) {
             return false;
         }
-
-
-    };
+    }
 
     async getTicketsPorId(id: string) {
         const tickets = await this.ticketModel.find({ Id: id }).exec();
         if (!tickets.length) {
-            throw new Error("No se encontro el Ticket.");
+            throw new Error('No se encontro el Ticket.');
         }
         const populatedTickets = await populateTickets(tickets);
         const formattedTickets = populatedTickets.map(formatDates);
         return formattedTickets;
     }
 
-
     //Obtiene todos los datos de la categorización por medio de la subcategoria en string
     async getCategorizacion(Subcategoria: any) {
         const Categorizacion = await this.categorizacionModel.findById({ _id: Subcategoria });
         return Categorizacion;
-    };
+    }
 
     //Esta función si se utiliza
     async getestadoTicket(dto: any) {
@@ -480,54 +558,194 @@ export class GetTicketsService {
             let estado;
 
             if (dto.hasResolutor) {
-                estado = await this.estadoModel.findOne({ Estado: "ABIERTOS" }).select("_id");
+                estado = await this.estadoModel.findOne({ Estado: 'ABIERTOS' }).select('_id');
             } else if (dto.standby) {
-                estado = await this.estadoModel.findOne({ Estado: "STANDBY" }).select("_id");
+                estado = await this.estadoModel.findOne({ Estado: 'STANDBY' }).select('_id');
             } else {
-                estado = await this.estadoModel.findOne({ Estado: "NUEVOS" }).select("_id");
+                estado = await this.estadoModel.findOne({ Estado: 'NUEVOS' }).select('_id');
             }
 
             dto.Estado = estado;
             return dto;
         } catch (error) {
-            throw new BadRequestException("No se encontró el estado.");
+            throw new BadRequestException('No se encontró el estado.');
         }
-    };
+    }
 
     async getCalendario(areas: string[], userId: string) {
-        const sanitizedAreas = areas.map((a) => new Types.ObjectId(a))
+        const sanitizedAreas = areas.map((a) => new Types.ObjectId(a));
         try {
-            const result = await this.ticketModel.find({
-                $and: [
-                    { $or: [{ Asignado_a: new Types.ObjectId(userId) }, { Reasignado_a: new Types.ObjectId(userId) }] },
-                    { $or: [{ Area: { $in: sanitizedAreas } }, { AreaTicket: { $in: sanitizedAreas } }] }
-                ]
-            }).select("Id Fecha_limite_resolucion_SLA Subcategoria Descripcion Cliente");
+            const result = await this.ticketModel
+                .find({
+                    $and: [
+                        {
+                            $or: [
+                                { Asignado_a: new Types.ObjectId(userId) },
+                                { Reasignado_a: new Types.ObjectId(userId) },
+                            ],
+                        },
+                        { $or: [{ Area: { $in: sanitizedAreas } }, { AreaTicket: { $in: sanitizedAreas } }] },
+                    ],
+                })
+                .select('Id Fecha_limite_resolucion_SLA Subcategoria Descripcion Cliente');
 
             const populatedResult = await this.ticketModel.populate(result, [
-                { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
-                { path: "Cliente", select: "Nombre Correo -_id" },
+                { path: 'Subcategoria', select: 'Descripcion_prioridad -_id' },
+                { path: 'Cliente', select: 'Nombre Correo -_id' },
             ]);
-            return populatedResult
+            return populatedResult;
         } catch (error) {
             console.log(error);
-            throw new BadRequestException("No se encontraron tickets");
+            throw new BadRequestException('No se encontraron tickets');
         }
-    };
+    }
 
     async getPerfil(userId: string) {
         try {
-            const result = await this.usuarioModel.findOne({ _id: new Types.ObjectId(userId) }, { Password: 0, Rol: 0 });
+            const result = await this.usuarioModel.findOne(
+                { _id: new Types.ObjectId(userId) },
+                { Password: 0, Rol: 0 },
+            );
 
             const populatedResult = await this.ticketModel.populate(result, [
-                { path: "Area", select: "-_id" },
-                { path: "Dependencia", select: "-_id" },
-                { path: "Direccion_General", select: "-_id" },
+                { path: 'Area', select: '-_id' },
+                { path: 'Dependencia', select: '-_id' },
+                { path: 'Direccion_General', select: '-_id' },
             ]);
-            return populatedResult
+            return populatedResult;
         } catch (error) {
-            throw new BadRequestException("No se encontraro el usuario. Error interno en el servidor.");
+            throw new BadRequestException('No se encontraro el usuario. Error interno en el servidor.');
         }
-    };
+    }
 
-};
+    // async getBusquedaAvanzadaGeneral(termino: string) {
+    //     try {
+    //         const tickets = await this.ticketModel.find({
+    //             $or: [
+    //                 { $or: [{ NumeroRec_Oficio: { $regex: termino, $options: "i" } }, { Numero_Oficio: { $regex: termino, $options: "i" } }] },
+    //                 { $or: [{ Nombre: { $regex: termino, $options: 'i' } }, { Correo: { $regex: termino, $options: 'i' } }] },
+    //                 { Descripcion: { $regex: termino, $options: "i" } },
+    //                 //{ Id: termino },
+    //             ]
+    //         }).exec();
+    //         if (!tickets.length) {
+    //             throw new Error('No se encontro el Ticket.');
+    //         }
+    //         const populatedTickets = await populateTickets(tickets);
+    //         const formattedTickets = populatedTickets.map(formatDates);
+    //         return formattedTickets;
+    //     } catch (error) {
+    //         console.log(error);
+    //         if (error instanceof NotFoundException) throw error;
+    //         throw new InternalServerErrorException('Error interno al buscar ticket por ID.');
+    //     }
+
+    // }
+
+    async getBusquedaAvanzadaId(id: string) {
+        try {
+            const tickets = await this.ticketModel.find({ Id: id }).exec();
+            if (!tickets.length) {
+                throw new Error('No se encontro el Ticket.');
+            }
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            console.log(error);
+            if (error instanceof NotFoundException) throw error;
+            throw new InternalServerErrorException('Error interno al buscar ticket por ID.');
+        }
+
+    }
+
+    async getBusquedaAvanzadaOficio(nombreOficio: string) {
+        try {
+            const tickets = await this.ticketModel
+                .find({
+                    $or: [{ NumeroRec_Oficio: nombreOficio }, { Numero_Oficio: nombreOficio }],
+                })
+                .exec();
+            if (!tickets.length) {
+                throw new Error('No se encontro el Ticket.');
+            }
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            throw new InternalServerErrorException('Error interno al buscar ticket por numero de oficio.');
+        }
+
+    }
+
+    async busquedaAvanzadaPorCliente(termino: string): Promise<Ticket[]> {
+        try {
+            // 1. Buscar clientes por nombre o correo
+            const clientes = await this.clienteModel.find({
+                $or: [
+                    { Nombre: { $regex: termino, $options: 'i' } },
+                    { Correo: { $regex: termino, $options: 'i' } },
+                ],
+            });
+
+            if (clientes.length === 0) {
+                throw new NotFoundException('No se encontró ningún cliente con ese término.');
+            }
+
+            const clienteIds = (clientes as Cliente[]).map((c) => new Types.ObjectId(c._id));
+
+            // 2. Buscar tickets relacionados al cliente
+            const tickets = await this.ticketModel.find({
+                Cliente: { $in: clienteIds },
+            });
+
+            if (!tickets || tickets.length === 0) {
+                throw new NotFoundException('No se encontraron tickets con ese término.');
+            }
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            throw new InternalServerErrorException('Error interno al buscar tickets por cliente.');
+        }
+    }
+
+    async busquedaAvanzadaPorResolutor(termino: string): Promise<Ticket[]> {
+        try {
+            // 1. Buscar usuarios que coincidan
+            const usuarios = await this.usuarioModel.find({
+                $or: [
+                    { Nombre: { $regex: termino, $options: 'i' } },
+                    { Correo: { $regex: termino, $options: 'i' } },
+                ],
+            });
+
+            if (usuarios.length === 0) {
+                throw new NotFoundException('No se encontró ningún resolutor con ese término.');
+            }
+
+            const ids = (usuarios as unknown as UsuarioI[]).map((u) => new Types.ObjectId(u._id));
+
+            // 2. Construir condiciones para campos posibles
+            const orConditions = ['Asignado_a', 'Reasignado_a', 'Resuelto_por', 'Creado_por'].map(
+                (field) => ({ [field]: { $in: ids } }),
+            );
+
+            // 3. Buscar tickets relacionados
+            const tickets = await this.ticketModel.find({ $or: orConditions });
+
+            if (!tickets || tickets.length === 0) {
+                throw new NotFoundException('No se encontraron tickets con ese término.');
+            }
+
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            throw new InternalServerErrorException('Error interno al buscar tickets por resolutor.');
+        }
+    }
+}

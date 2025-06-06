@@ -20,7 +20,6 @@ export interface DireccionArea {
   direccion_area: string;
 }
 
-
 export interface ClienteConPopulates {
   _id: Types.ObjectId;
   Nombre: string;

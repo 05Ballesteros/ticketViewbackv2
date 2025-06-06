@@ -72,15 +72,16 @@ export class Ticket {
   Reabierto: Types.ObjectId[];
 
   @Prop({
-    type: [{
-      name: String,
-      url: String,
-      _id: { type: Types.ObjectId, default: () => new Types.ObjectId() }
-    }],
-    default: []
+    type: [
+      {
+        name: String,
+        url: String,
+        _id: { type: Types.ObjectId, default: () => new Types.ObjectId() },
+      },
+    ],
+    default: [],
   })
   Files: { name: string; url: string; _id: Types.ObjectId }[];
-
 
   // Estos campos los maneja Mongoose automáticamente si usas timestamps,
   // pero aquí los puedes referenciar como alias si lo deseas:
@@ -108,4 +109,3 @@ export class Ticket {
 
 export type TicketDocument = Ticket & Document;
 export const TicketSchema = SchemaFactory.createForClass(Ticket);
-
