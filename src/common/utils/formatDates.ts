@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-
+import { es } from "date-fns/locale"
 export function formatDates(ticket: any): any {
     const dateFields = [
         'Fecha_hora_creacion',
@@ -10,11 +10,18 @@ export function formatDates(ticket: any): any {
         'Fecha_hora_resolucion',
     ];
 
+    const formatFecha = (fecha) => {
+        if (!fecha || new Date(fecha).getFullYear() === 1900) {
+            return "";
+        }
+        return format(fecha, "d 'de' MMMM 'de' yyyy, h:mm a", { locale: es });
+    };
+
     const formattedTicket = { ...ticket.toObject() };
 
     dateFields.forEach((field) => {
         if (formattedTicket[field]) {
-            formattedTicket[field] = format(new Date(formattedTicket[field]), 'yyyy-MM-dd HH:mm:ss');
+            formattedTicket[field] = formatFecha(new Date(formattedTicket[field]));
         }
     });
 

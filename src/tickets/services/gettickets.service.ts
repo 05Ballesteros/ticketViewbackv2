@@ -502,17 +502,27 @@ export class GetTicketsService {
                     { $or: [{ Asignado_a: new Types.ObjectId(userId) }, { Reasignado_a: new Types.ObjectId(userId) }] },
                     { $or: [{ Area: { $in: sanitizedAreas } }, { AreaTicket: { $in: sanitizedAreas } }] }
                 ]
+<<<<<<< HEAD
             }).select("Id Fecha_limite_resolucion_SLA Subcategoria");
 
             const populatedResult = await this.ticketModel.populate(result, [
                 { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
+=======
+            }).select("Id Fecha_limite_resolucion_SLA Subcategoria Descripcion Cliente");
+
+            const populatedResult = await this.ticketModel.populate(result, [
+                { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
+                { path: "Cliente", select: "Nombre Correo -_id" },
+>>>>>>> 08c6146904109e8712dd6fe029700759a89d25c5
             ]);
             return populatedResult
         } catch (error) {
+            console.log(error);
             throw new BadRequestException("No se encontraron tickets");
         }
     };
 
+<<<<<<< HEAD
     async getEstado(Estado: string): Promise<string> {
         try {
             const RES = await this.estadoModel.findOne({ Estado }).select("_id").lean();
@@ -526,5 +536,21 @@ export class GetTicketsService {
         }
     }
 
+=======
+    async getPerfil(userId: string) {
+        try {
+            const result = await this.usuarioModel.findOne({ _id: new Types.ObjectId(userId) }, { Password: 0, Rol: 0 });
+
+            const populatedResult = await this.ticketModel.populate(result, [
+                { path: "Area", select: "-_id" },
+                { path: "Dependencia", select: "-_id" },
+                { path: "Direccion_General", select: "-_id" },
+            ]);
+            return populatedResult
+        } catch (error) {
+            throw new BadRequestException("No se encontraro el usuario. Error interno en el servidor.");
+        }
+    };
+>>>>>>> 08c6146904109e8712dd6fe029700759a89d25c5
 
 };

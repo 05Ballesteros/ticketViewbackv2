@@ -21,7 +21,7 @@ export class TicketsController {
     constructor(
         private readonly getticketsService: GetTicketsService,
         private readonly postticketsService: PostTicketsService,
-        private readonly putticketsService: PutTicketsService, ) { }
+        private readonly putticketsService: PutTicketsService,) { }
 
     @Post('crear/ticket')
     @UseGuards(JwtAuthGuard)
@@ -32,7 +32,7 @@ export class TicketsController {
         @Body() dto: CreateTicketDto,      // <-- mapea y valida directo
         @Token() token: string,
     ): Promise<Ticket> {
-        return this.postticketsService.crearTicket(dto, req.user,token, files);
+        return this.postticketsService.crearTicket(dto, req.user, token, files);
     };
 
     @Put('asignar/:id')
@@ -159,8 +159,21 @@ export class TicketsController {
     @Get('calendario')
     async getCalendario(@Req() req: any) {
         try {
-            const {areas, userId} = req.user;
+            const { areas, userId } = req.user;
             return this.getticketsService.getCalendario(areas, userId);
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    };
+
+    @Get('perfil')
+    async getPerfil(@Req() req: any) {
+        try {
+            const { userId } = req.user;
+            return this.getticketsService.getPerfil(userId);
         } catch (error) {
             throw new HttpException(
                 { message: 'Error interno al obtener los tickets.', details: error.message },
