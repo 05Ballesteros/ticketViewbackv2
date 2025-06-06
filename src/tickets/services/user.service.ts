@@ -40,12 +40,20 @@ export class UserService {
 
     async getAsignado(id: string) {
         try {
-            const asignado = await this.usuarioModel.findById({ _id: new Types.ObjectId(id) }).select("-Pasword");
+            console.log("LLEGA?", id);
+
+            // Convertir el string a ObjectId
+            const objectId = new Types.ObjectId(id);
+
+            const asignado = await this.usuarioModel.findOne({ _id: objectId });
+            console.log("Usuario Encontrado", asignado);
+
             return asignado;
         } catch (error) {
+            console.log(error);
             throw new BadRequestException("No se encontro el Asignado");
         }
-    };
+    }
 
     async getareaAsignado(userId: any) {
         try {
@@ -93,18 +101,23 @@ export class UserService {
 
     async getModeradorPorAreayRol(Area: any, RolModerador: any) {
         try {
-            const result = await this.usuarioModel.find({
+            const result = await this.usuarioModel.findOne({
                 Area,
                 Rol: RolModerador,
-            });
-            if (!result || result.length === 0) {
-                return false;
+            }).select("_id") as User | null;
+
+            if (!result) {
+                return "";
             }
-            console.log(result[0]._id);
-            return result[0]._id;
+            return result._id;
         } catch (error) {
             console.error("Error al obtener moderadores:", error);
-            return false;
+            throw new BadRequestException("Error interno del servidor");
         }
-    };
+    }
+
+
+
+
+
 };

@@ -20,3 +20,24 @@ export const historicoCreacion = async (user: any, asignado: any) => {
     };
     return Historia_ticket;
 };
+
+export const historicoAsignacion = async (user: any, ticketData: any) => {
+    const { userId, nombre, rol } = user;
+    const Historia_ticket = [
+        {
+            Nombre: userId,
+            Titulo: "Ticket Asignado",
+            Mensaje: `El ticket ha sido asignado por ${nombre} (${rol}).`,
+            Fecha: obtenerFechaActual(),
+        },
+    ];
+    if (ticketData.Nota) {
+        Historia_ticket.push({
+            Nombre: userId,
+            Titulo: "Nota agregada",
+            Mensaje: `Nota:\n${ticketData.Nota}`,
+            Fecha: obtenerFechaActual(),
+        });
+    }
+    return Historia_ticket;
+};

@@ -4,7 +4,8 @@ import * as FormData from "form-data";
 import * as fs from "fs";
 
 export const guardarArchivos = async (token: string, files: any) => {
-
+    console.log("Archivos a guardar", files);
+    console.log("Token", token);
     console.log("Guardando archivos...");
     const formData = new FormData();
     // Agregamos todos los archivos al FormData
@@ -13,7 +14,7 @@ export const guardarArchivos = async (token: string, files: any) => {
             console.error(`Archivo no encontrado: ${file.path}`);
             throw new InternalServerErrorException(`Archivo no encontrado: ${file.path}`);
         }
-        
+
         try {
             formData.append("files", fs.createReadStream(file.path), file.originalname);
         } catch (error) {
@@ -21,11 +22,11 @@ export const guardarArchivos = async (token: string, files: any) => {
             throw new InternalServerErrorException(`Error al procesar archivo: ${file.originalname}`);
         }
     });
-    
+
     try {
         // Enviar una sola petición con todos los archivos
         const response = await axios.post(
-            "http://localhost:4001/api/v1/files",
+            "http://files-service-nest:4401/api/v1/files",
             formData,
             {
                 headers: {

@@ -34,6 +34,7 @@ export interface ClienteConPopulates {
 }
 
 export interface User {
-    _id: string;
-    Rol?: { Rol: string };
+    _id: string; // ID del usuario en formato string
+    Area: string; // Área asignada al usuario
+    Rol?: { Rol: string }; // Rol del usuario, opcional y estructurado como un objeto con una propiedad 'Rol'
 }

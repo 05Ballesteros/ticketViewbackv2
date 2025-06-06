@@ -499,17 +499,32 @@ export class GetTicketsService {
         try {
             const result = await this.ticketModel.find({
                 $and: [
-                    {$or: [{Asignado_a: new Types.ObjectId(userId)}, {Reasignado_a: new Types.ObjectId(userId)}]},
-                    {$or: [{Area: {$in: sanitizedAreas}},{AreaTicket: {$in: sanitizedAreas}}]}
-                ]}).select("Id Fecha_limite_resolucion_SLA Subcategoria");
-                
-    const populatedResult = await this.ticketModel.populate(result, [
-      { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
-    ]);
-    return populatedResult
+                    { $or: [{ Asignado_a: new Types.ObjectId(userId) }, { Reasignado_a: new Types.ObjectId(userId) }] },
+                    { $or: [{ Area: { $in: sanitizedAreas } }, { AreaTicket: { $in: sanitizedAreas } }] }
+                ]
+            }).select("Id Fecha_limite_resolucion_SLA Subcategoria");
+
+            const populatedResult = await this.ticketModel.populate(result, [
+                { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
+            ]);
+            return populatedResult
         } catch (error) {
             throw new BadRequestException("No se encontraron tickets");
         }
     };
+
+    async getEstado(Estado: string): Promise<string> {
+        try {
+            const RES = await this.estadoModel.findOne({ Estado }).select("_id").lean();
+            if (!RES || !RES._id) {
+                throw new BadRequestException("Estado no encontrado");
+            }
+            return RES._id.toString(); // Convertimos _id a string antes de devolverlo
+        } catch (error) {
+            console.error("Error en getEstado:", error.message);
+            throw new BadRequestException("Error interno del servidor");
+        }
+    }
+
 
 };

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Param, Post, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, HttpStatus, Param, Post, Put, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { GetTicketsService } from './services/gettickets.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { PostTicketsService } from './services/posttickets.service';
@@ -35,14 +35,14 @@ export class TicketsController {
         return this.postticketsService.crearTicket(dto, req.user,token, files);
     };
 
-    @Post('asignar/:id')
+    @Put('asignar/:id')
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async asignarTicket(
         @Param('id') id: string,
         @Req() req: any,
-        @Cookie('access_token') token: string,
+        @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
-        @Body() ticketData: AsignarTicketDto,  //Crear un Dto para asignación
+        @Body() ticketData: AsignarTicketDto,
     ): Promise<Ticket> {
         return this.putticketsService.asgnarTicket(ticketData, req.user, token, files, id);
     };

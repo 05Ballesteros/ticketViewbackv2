@@ -22,6 +22,9 @@ export class AsignarTicketDto {
   @IsString()
   Asignado_a: string;
 
+  @IsString()
+  Cliente: string;
+
   @ValidateNested({ each: true })
   @Type(() => FileDto)
   @IsOptional()
