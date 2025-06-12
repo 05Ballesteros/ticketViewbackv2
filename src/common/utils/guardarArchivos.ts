@@ -5,8 +5,6 @@ import * as fs from "fs";
 
 export const guardarArchivos = async (token: string, files: any) => {
     console.log("Archivos a guardar", files);
-    console.log("Token", token);
-    console.log("Guardando archivos...");
     const formData = new FormData();
     // Agregamos todos los archivos al FormData
     files.forEach((file) => {

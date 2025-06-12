@@ -10,7 +10,7 @@ export class ClienteService {
         @InjectModel(Clientes.name) private readonly clienteModel: Model<Clientes>,
     ) { }
 
-    async getCliente(id: string) {
+    async getCliente(id: any) {
         try {
             return await this.clienteModel
                 .findOne(new Types.ObjectId(id))

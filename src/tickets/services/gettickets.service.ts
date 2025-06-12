@@ -25,6 +25,7 @@ import { DireccionArea } from 'src/schemas/direccionarea.schema';
 import { Medio } from 'src/schemas/mediocontacto.schema';
 import { Categorizacion } from 'src/schemas/categorizacion.schema';
 import { sub } from 'date-fns';
+import { th } from 'date-fns/locale';
 @Injectable()
 export class GetTicketsService {
     constructor(
@@ -186,6 +187,25 @@ export class GetTicketsService {
         }
     };
 
+    async getArea(userId: any) {
+        try {
+            const result = await this.usuarioModel.findOne({ _id: userId }).lean();
+            if (!result) {
+                return false;
+            }
+            const areaUsuario = await this.usuarioModel.populate(result, [{ path: "Area" }]);
+            if (!areaUsuario.Area || areaUsuario.Area.length === 0) {
+                return false; // No hay áreas asociadas
+            }
+            return areaUsuario.Area.map((area: any) => area._id); // Devuelve un arreglo de _id
+        } catch (error) {
+            console.log("error", error);
+            return false;
+        }
+    }
+
+
+
     async getTicketsPorArea(area: string): Promise<Ticket[]> {
         try {
             const [areaDoc] = await this.areaModel.find({ Area: area }).select("_id").exec();
@@ -211,7 +231,7 @@ export class GetTicketsService {
         const populatedTickets = await populateTickets(tickets);
         const formattedTickets = populatedTickets.map(formatDates);
         return formattedTickets;
-    }
+    };
     //Falta corregirlo.
     async exportTicketsToExcel(): Promise<string> {
         try {
@@ -369,7 +389,7 @@ export class GetTicketsService {
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
-    }
+    };
 
     async getDependenciasCLientes() {
         const dependencias = await this.depedenciaModel.find().exec();
@@ -389,7 +409,7 @@ export class GetTicketsService {
         );
 
         return DEPENDENCIASCLIENTES;
-    }
+    };
 
     async getCorreos(id: string) {
         const ticket = await this.ticketModel.findOne({ _id: new Types.ObjectId(id) })
@@ -413,7 +433,7 @@ export class GetTicketsService {
         } else {
             throw new Error('Cliente no está poblado correctamente');
         }
-    }
+    };
 
     async getInfoSelects() {
         try {
@@ -465,8 +485,17 @@ export class GetTicketsService {
         const populatedTickets = await populateTickets(tickets);
         const formattedTickets = populatedTickets.map(formatDates);
         return formattedTickets;
-    }
+    };
 
+    async getTicketsPor_Id(_id: string) {
+        const tickets = await this.ticketModel.findOne({ _id: _id }).populate([
+            { path: 'Asignado_a Reasignado_a Cliente Creado_por' },
+            { path: 'Area', select: 'Area' },
+            { path: 'Estado', select: 'Estado' },
+            { path: 'Medio', select: 'Medio' },
+            { path: 'Subcategoria' },]).exec();
+        return tickets;
+    };
 
     //Obtiene todos los datos de la categorización por medio de la subcategoria en string
     async getCategorizacion(Subcategoria: any) {
@@ -494,6 +523,15 @@ export class GetTicketsService {
         }
     };
 
+    async getEstado(estado: any) {
+        try {
+            const estadoticket = await this.estadoModel.findOne({ Estado: estado }).select("_id");
+            return estadoticket;
+        } catch (error) {
+            throw new BadRequestException("No se encontró el estado.");
+        }
+    };
+
     async getCalendario(areas: string[], userId: string) {
         const sanitizedAreas = areas.map((a) => new Types.ObjectId(a))
         try {
@@ -502,18 +540,11 @@ export class GetTicketsService {
                     { $or: [{ Asignado_a: new Types.ObjectId(userId) }, { Reasignado_a: new Types.ObjectId(userId) }] },
                     { $or: [{ Area: { $in: sanitizedAreas } }, { AreaTicket: { $in: sanitizedAreas } }] }
                 ]
-<<<<<<< HEAD
-            }).select("Id Fecha_limite_resolucion_SLA Subcategoria");
-
-            const populatedResult = await this.ticketModel.populate(result, [
-                { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
-=======
             }).select("Id Fecha_limite_resolucion_SLA Subcategoria Descripcion Cliente");
 
             const populatedResult = await this.ticketModel.populate(result, [
                 { path: "Subcategoria", select: "Descripcion_prioridad -_id" },
                 { path: "Cliente", select: "Nombre Correo -_id" },
->>>>>>> 08c6146904109e8712dd6fe029700759a89d25c5
             ]);
             return populatedResult
         } catch (error) {
@@ -522,21 +553,6 @@ export class GetTicketsService {
         }
     };
 
-<<<<<<< HEAD
-    async getEstado(Estado: string): Promise<string> {
-        try {
-            const RES = await this.estadoModel.findOne({ Estado }).select("_id").lean();
-            if (!RES || !RES._id) {
-                throw new BadRequestException("Estado no encontrado");
-            }
-            return RES._id.toString(); // Convertimos _id a string antes de devolverlo
-        } catch (error) {
-            console.error("Error en getEstado:", error.message);
-            throw new BadRequestException("Error interno del servidor");
-        }
-    }
-
-=======
     async getPerfil(userId: string) {
         try {
             const result = await this.usuarioModel.findOne({ _id: new Types.ObjectId(userId) }, { Password: 0, Rol: 0 });
@@ -551,6 +567,13 @@ export class GetTicketsService {
             throw new BadRequestException("No se encontraro el usuario. Error interno en el servidor.");
         }
     };
->>>>>>> 08c6146904109e8712dd6fe029700759a89d25c5
 
+    async getAreaPorNombre(nombre: string) {
+        try {
+            const Area = await this.areaModel.findOne({ Area: nombre });
+            return Area;
+        } catch (error) {
+            throw new BadRequestException("No se encontraro el área. Error interno en el servidor.");
+        }
+    };
 };

@@ -40,14 +40,9 @@ export class UserService {
 
     async getAsignado(id: string) {
         try {
-            console.log("LLEGA?", id);
-
             // Convertir el string a ObjectId
             const objectId = new Types.ObjectId(id);
-
             const asignado = await this.usuarioModel.findOne({ _id: objectId });
-            console.log("Usuario Encontrado", asignado);
-
             return asignado;
         } catch (error) {
             console.log(error);
@@ -114,10 +109,16 @@ export class UserService {
             console.error("Error al obtener moderadores:", error);
             throw new BadRequestException("Error interno del servidor");
         }
-    }
+    };
 
-
-
-
-
+    async incTickets(user: any, actualizarContador: any) {
+        const result = await this.usuarioModel.findOneAndUpdate(
+            { _id: user.userId },
+            { $inc: { [`Tickets_resueltos.${actualizarContador}`]: 1 } }
+        );
+        if (!result) {
+            return false;
+        }
+        return true;
+    };
 };
