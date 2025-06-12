@@ -123,7 +123,7 @@ export class PutTicketsService {
             }
             console.log(updatedTicket.Asignado_a[0], updatedTicket.Reasignado_a[0]);
             //Se valida a quien se va enviar el correo de asignación
-            const Usuario = await this.userService.getAsignado(
+            const Usuario = await this.userService.getUsuario(
                 (updatedTicket.Reasignado_a && updatedTicket.Reasignado_a.length > 0
                     ? updatedTicket.Reasignado_a[0]
                     : updatedTicket.Asignado_a[0]
@@ -188,7 +188,7 @@ export class PutTicketsService {
             const Reasignado = ticketData.Reasignado_a;
             // 1.- Obtener area del reasignado para actualizar el ticket
             const areaReasignado = await this.userService.getareaAsignado(Reasignado);
-            const Usuario = await this.userService.getAsignado(Reasignado);
+            const Usuario = await this.userService.getUsuario(Reasignado);
             if (!areaReasignado) {
                 console.log("Transacción abortada.");
                 await session.abortTransaction();
@@ -348,7 +348,7 @@ export class PutTicketsService {
             }
             console.log(updatedTicket.Asignado_a[0], updatedTicket.Reasignado_a[0]);
             //Se valida a quien se va enviar el correo de asignación
-            const Usuario = await this.userService.getAsignado(ticketData.Asignado_a);
+            const Usuario = await this.userService.getUsuario(ticketData.Asignado_a);
             const cliente = await this.clienteService.getCliente(updatedTicket.Cliente);
             //7.- Enviar correos
             let correoData = {
@@ -770,22 +770,20 @@ export class PutTicketsService {
                 }
             }
             //Falta lo del correo y crear el canal en emailservice.
+            const Usuario = await this.userService.getUsuario(updatedTicket.Reasignado_a[0]._id.toString());
             //7.- Enviar correos
-            // let correoData = {
-            //     idTicket: updatedTicket.Id,
-            //     correoUsuario: Usuario?.Correo,
-            //     extensionCliente: cliente?.Extension,
-            //     descripcionTicket: updatedTicket.Descripcion,
-            //     nombreCliente: cliente?.Nombre,
-            //     telefonoCliente: cliente?.Telefono,
-            //     ubicacion: cliente?.Ubicacion,
-            //     area: cliente?.direccion_area?.direccion_area,
-            // };
-            // const channel = "channel_regresarTicket";
-            // const correo = await this.correoService.enviarCorreo(correoData, channel, token);
-            // if (correo) {
-            //     console.log("Mensaje enviado al email service");
-            // }
+            const correoData = {
+                idTicket: updatedTicket.Id,
+                correoResolutor: Usuario?.Correo,
+                Descripcion_respuesta_cliente: ticketData.Descripcion_respuesta_cliente,
+            };
+
+            console.log("Correo data", correoData);
+            const channel = "channel_regresarTicketResolutor";
+            const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+            if (correo) {
+                console.log("Mensaje enviado al email service");
+            }
             return updatedTicket;
         } catch (error) {
             console.error("Error al rechazar solución:", error.message);

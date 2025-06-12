@@ -38,12 +38,12 @@ export class UserService {
         }
     };
 
-    async getAsignado(id: string) {
+    async getUsuario(id: string) {
         try {
             // Convertir el string a ObjectId
             const objectId = new Types.ObjectId(id);
-            const asignado = await this.usuarioModel.findOne({ _id: objectId });
-            return asignado;
+            const usuario = await this.usuarioModel.findOne({ _id: objectId });
+            return usuario;
         } catch (error) {
             console.log(error);
             throw new BadRequestException("No se encontro el Asignado");

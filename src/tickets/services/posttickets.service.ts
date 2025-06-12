@@ -42,7 +42,7 @@ export class PostTicketsService {
             //4.- Calcular las fechas
             const Fecha_limite = calcularFechaResolucion(dto.Tiempo);
             //5.- Obtencion del asignado
-            const asignado = await this.userService.getAsignado(dtoAsignado.Asignado_a);
+            const asignado = await this.userService.getUsuario(dtoAsignado.Asignado_a);
             //6.- Se obtiene el cliente
             const cliente = await this.clienteService.getCliente(dto.Cliente);
             //5.- LLenado del hostorico
