@@ -1,6 +1,5 @@
 export async function populateTickets(tickets: any[]): Promise<any[]> {
   try {
-    console.log("estos son los ticket", tickets);
 
     const populatedTickets = await Promise.all(
       tickets.map(async (ticket) => {

@@ -7,6 +7,7 @@ import {
     NotFoundException,
     Param,
     Post,
+    Put,
     Query,
     Req,
     Res,
@@ -287,6 +288,36 @@ export class TicketsController {
         } catch (error) {
             throw new HttpException(
                 { message: 'Error interno al obtener los tickets.', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Put('/pendiente/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async marcarTicketPendiente(@Param('id') _id: string, @Req() req: any, @Body() data: { cuerpoCorreo: string, emailsExtra: string[] }, @UploadedFiles() files: Express.Multer.File[], @Token() token: string,) {
+        try {
+            const cuerpoCorreo = data.cuerpoCorreo
+            const emails_extra = data.emailsExtra;
+            return this.putticketsService.marcarTicketPendiente(_id, req.user, cuerpoCorreo, emails_extra, files, token);
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error interno al marcar el ticket como pendiente', details: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Put('/contactoCliente/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async contactarCliente(@Param('id') _id: string, @Req() req: any, @Body() data: { cuerpoCorreo: string, emailsExtra: string[] }, @UploadedFiles() files: Express.Multer.File[], @Token() token: string,) {
+        try {
+            const cuerpoCorreo = data.cuerpoCorreo
+            const emails_extra = data.emailsExtra;
+            return this.putticketsService.contactarCliente(_id, req.user, cuerpoCorreo, emails_extra, files, token);
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error interno al contactar al cliente', details: error.message },
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }

@@ -105,9 +105,9 @@ export class GetTicketsService {
                     .exec();
             } else if (estado === 'REVISION') {
                 result = await this.ticketModel.find({
-                    Asignado_a: userObjectId,
+                    Asignado_a: { $in: [userObjectId] },
                     Estado: estadoticket?._id,
-                    Area: areas,
+                    Area: { $in: areas },
                 });
             } else if (estado === 'ABIERTOS') {
                 result = await this.ticketModel.find({
@@ -129,9 +129,12 @@ export class GetTicketsService {
         } else {
             result = await this.ticketModel.find({ Estado: estadoticket?._id });
         }
-        const populatedTickets = await populateTickets(result);
-        const formattedTickets = populatedTickets.map(formatDates);
-        return formattedTickets.length ? formattedTickets : null;
+        if (result.length > 0) {
+            const populatedTickets = await populateTickets(result);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        }
+        return result
     }
 
     async getReabrirFields() {
@@ -746,6 +749,15 @@ export class GetTicketsService {
         } catch (error) {
             if (error instanceof NotFoundException) throw error;
             throw new InternalServerErrorException('Error interno al buscar tickets por resolutor.');
+        }
+    }
+
+    async getIdEstadoTicket(estado: string) {
+        try {
+            const result = await this.estadoModel.findOne({ Estado: estado }).select('_id');
+            return result;
+        } catch (error) {
+            throw new NotFoundException('No se encontró el estado.');
         }
     }
 }
