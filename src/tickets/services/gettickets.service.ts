@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Estado } from 'src/schemas/estados.schema';
 import { Model, Types } from 'mongoose';
@@ -26,6 +26,38 @@ import { Medio } from 'src/schemas/mediocontacto.schema';
 import { Categorizacion } from 'src/schemas/categorizacion.schema';
 import { sub } from 'date-fns';
 import { th } from 'date-fns/locale';
+
+interface Cliente {
+    _id: Types.ObjectId;
+    Nombre: string;
+    Correo: string;
+    Dependencia: Types.ObjectId;
+    Direccion_General: Types.ObjectId;
+    direccion_area: Types.ObjectId;
+    Telefono: string;
+    Extension?: string;
+    Ubicacion?: string;
+}
+
+interface UsuarioI {
+    _id: Types.ObjectId;
+    Nombre: string;
+    Correo: string;
+    isActive: boolean;
+    Area: string[];
+    Rol: string;
+    Dependencia: Types.ObjectId;
+    Direccion_General: Types.ObjectId;
+    Direccion: {
+        Pais: string;
+        Ciudad: string;
+        codigoPostal: string;
+    };
+    Telefono: string;
+    Extension?: string;
+    Puesto: string;
+    Ubicacion?: string;
+}
 @Injectable()
 export class GetTicketsService {
     constructor(
@@ -67,9 +99,12 @@ export class GetTicketsService {
         } else {
             result = await this.ticketModel.find({ Estado: estadoticket?._id });
         }
-        const populatedTickets = await populateTickets(result);
-        const formattedTickets = populatedTickets.map(formatDates);
-        return formattedTickets.length ? formattedTickets : null;
+        if (result.length > 0) {
+            const populatedTickets = await populateTickets(result);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        }
+        return result;
     };
 
     async getReabrirFields() {
@@ -576,4 +611,13 @@ export class GetTicketsService {
             throw new BadRequestException("No se encontraro el área. Error interno en el servidor.");
         }
     };
+
+    async getIdEstadoTicket(estado: string) {
+        try {
+            const result = await this.estadoModel.findOne({ Estado: estado }).select('_id');
+            return result;
+        } catch (error) {
+            throw new NotFoundException('No se encontró el estado.');
+        }
+    }
 };

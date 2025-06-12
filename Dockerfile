@@ -1,19 +1,22 @@
 # Etapa de build
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm install
+RUN npm config set registry https://registry.npmmirror.com && npm install
+
 COPY . .
 RUN npm run build
- 
+
 # Etapa final
-FROM node:18-alpine
+FROM node:20-alpine
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm config set registry https://registry.npmmirror.com && npm install --only=production
+
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/*.json .                                  
+COPY --from=builder /app/*.json .
+
 EXPOSE 4201
 CMD ["node", "dist/main"]
- 
- 

@@ -1,4 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+    BadRequestException, Injectable, InternalServerErrorException,NotFoundException,
+} from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Estado } from 'src/schemas/estados.schema';
 import { Ticket } from 'src/schemas/ticket.schema';
@@ -14,7 +16,9 @@ import { ClienteService } from './cliente.service';
 import { CorreoService } from './correos.service';
 import { Model, Connection, ClientSession, Types } from 'mongoose';
 import incTicketsUsuario from 'src/common/utils/ticketEnTiempo';
-
+import * as fs from 'fs';
+import FormData = require('form-data');
+import { Clientes } from 'src/schemas/cliente.schema';
 
 @Injectable()
 export class PutTicketsService {
@@ -26,6 +30,7 @@ export class PutTicketsService {
         @InjectConnection() private readonly connection: Connection,
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
+        @InjectModel(Clientes.name) private readonly clienteModel: Model<Clientes>,
     ) { }
     async asginarTicket(ticketData: any, user: any, token: string, files: any, id: string): Promise<Ticket> {
         const session: ClientSession = await this.connection.startSession();
@@ -790,4 +795,158 @@ export class PutTicketsService {
             throw new BadRequestException("Error interno del servidor.");
         }
     };
+
+    async marcarTicketPendiente(
+        _id: string,
+        user: { userId: string; nombre: string },
+        cuerpoCorreo: string,
+        emails_extra: string[],
+        files: Express.Multer.File[],
+        token: string,
+    ): Promise<Ticket> {
+        try {
+            const resultEstado = await this.getticketsService.getIdEstadoTicket('PENDIENTES');
+
+            if (!resultEstado) {
+                throw new NotFoundException('No se encontro el estado del ticket.');
+            }
+
+            const { userId, nombre } = user;
+
+            const result = await this.ticketModel.findOneAndUpdate(
+                { _id },
+                {
+                    $set: { Estado: resultEstado._id },
+                    $push: {
+                        Historia_ticket: {
+                            Nombre: userId,
+                            Titulo: 'Ticket Pendiente',
+                            Mensaje: `Ticket marcado como pendiente. ${nombre} se ha puesto en contacto mediante correo electrónico con el cliente. Mensaje incluido en el correo: <${cuerpoCorreo}>`,
+                            stopper: true,
+                        },
+                    },
+                },
+                { new: true },
+            );
+
+            if (!result) {
+                throw new BadRequestException('No se pudo actualizar el ticket.');
+            }
+
+            const cliente = await this.clienteModel.findById(result.Cliente).select('Nombre Correo');
+
+            if (!cliente) {
+                throw new NotFoundException('No se encontró la informacion del cliente.');
+            }
+
+            const formData = new FormData();
+
+            const correoData = {
+                details: cuerpoCorreo,
+                idTicket: result.Id,
+                destinatario: cliente.Correo,
+                emails_extra,
+            };
+
+            formData.append('correoData', JSON.stringify(correoData));
+
+            if (files.length > 0) {
+                files.forEach((file) => {
+                    const buffer = fs.readFileSync(file.path);
+                    formData.append('files', buffer, file.originalname);
+                });
+            }
+
+            const response = await this.correoService.enviarCorreoHTTP(formData, 'pendiente', _id, token);
+
+            if (response.success) {
+                return response.data;
+            } else {
+                console.error(
+                    '⚠️    Hubo un problema al enviar el correo:',
+                    response.data.message || response.data,
+                );
+            }
+            throw new BadRequestException('Ocurrio un error al enviar al correo.');
+        } catch (error) {
+            console.error('Error al marcar el ticket como pendiente', error);
+            throw new InternalServerErrorException('Error interno del servidor.');
+        }
+    }
+
+    async contactarCliente(
+        _id: string,
+        user: { userId: string; nombre: string },
+        cuerpoCorreo: string,
+        emails_extra: string[],
+        files: Express.Multer.File[],
+        token: string,
+    ): Promise<Ticket> {
+        try {
+            const { userId, nombre } = user;
+
+            const result = await this.ticketModel.findOneAndUpdate(
+                { _id },
+                {
+                    $set: { Fecha_hora_ultima_modificacion: obtenerFechaActual() },
+                    $push: {
+                        Historia_ticket: {
+                            Nombre: userId,
+                            Titulo: 'Contacto con el cliente',
+                            Mensaje: `${nombre} se ha puesto en contacto mediante correo electrónico con el cliente. Cuerpo del correo: <${cuerpoCorreo}>`,
+                            stopper: false,
+                        },
+                    },
+                },
+                { new: true },
+            );
+
+            if (!result) {
+                throw new BadRequestException('No se pudo contactar al cliente.');
+            }
+
+            const cliente = await this.clienteModel.findById(result.Cliente).select('Nombre Correo');
+
+            if (!cliente) {
+                throw new NotFoundException('No se encontró la informacion del cliente.');
+            }
+
+            const formData = new FormData();
+
+            const correoData = {
+                details: cuerpoCorreo,
+                idTicket: result.Id,
+                destinatario: cliente.Correo,
+                emails_extra,
+            };
+
+            formData.append('correoData', JSON.stringify(correoData));
+
+            if (files.length > 0) {
+                files.forEach((file) => {
+                    const buffer = fs.readFileSync(file.path);
+                    formData.append('files', buffer, file.originalname);
+                });
+            }
+
+            const response = await this.correoService.enviarCorreoHTTP(
+                formData,
+                'contactoCliente',
+                _id,
+                token,
+            );
+            if (response.success) {
+                return response.data;
+            } else {
+                console.error(
+                    '⚠️    Hubo un problema al enviar el correo:',
+                    response.data.message || response.data,
+                );
+            }
+            throw new BadRequestException('Ocurrio un error al enviar al correo.');
+        } catch (error) {
+            console.error('Error al contactar al cliente', error);
+            throw new InternalServerErrorException('Error interno del servidor.');
+        }
+    }
 }; 

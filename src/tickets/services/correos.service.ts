@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import axios from 'axios';
+import FormData = require('form-data');
 
 @Injectable()
 export class CorreoService {
@@ -34,4 +35,32 @@ export class CorreoService {
             throw new BadRequestException('Error al enviar el correo.');
         }
     }
+
+    async enviarCorreoHTTP(formData: FormData, endpoint: string, _id: string, token: any) {
+    try {
+      const response = await axios.post(
+        `http://email-service-nest:8000/api/v1/email/${endpoint}/${_id}`,
+        formData,
+        {
+          headers: {
+            ...formData.getHeaders(),
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (response.status === 201 && response.data.success) {
+        return response.data;
+      } else {
+        console.error(
+          '⚠️    Hubo un problema al enviar el correo:',
+          response.data.message || response.data,
+        );
+      }
+      throw new BadRequestException('Ocurrio un error al enviar al correo.');
+    } catch (error) {
+      console.error('Error al enviar el correo:', error);
+      throw new BadRequestException('Error al enviar el correo.');
+    }
+  }
 }

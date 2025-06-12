@@ -121,7 +121,7 @@ export class TicketsController {
     ): Promise<Ticket> {
         return this.putticketsService.regresarTicketMesa(ticketData, req.user, files, token, id);
     };
-   
+
     @Put('retornoModerador/:id')
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async retornarTicketModerador(
@@ -146,7 +146,7 @@ export class TicketsController {
         return this.putticketsService.regresarTicketResolutor(ticketData, req.user, files, token, id);
     };
 
-    
+
 
     @Get('estado/:estado')
     getTickets(
@@ -282,5 +282,65 @@ export class TicketsController {
             );
         }
     };
+
+    @Put('/pendiente/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async marcarTicketPendiente(
+        @Param('id') _id: string,
+        @Req() req: Request & { user: any },
+        @Body() data: { cuerpoCorreo: string; emailsExtra: string[] },
+        @UploadedFiles() files: Express.Multer.File[],
+        @Token() token: string,
+    ) {
+        try {
+            const cuerpoCorreo = data.cuerpoCorreo;
+            const emails_extra = data.emailsExtra;
+            return this.putticketsService.marcarTicketPendiente(
+                _id,
+                req.user,
+                cuerpoCorreo,
+                emails_extra,
+                files,
+                token,
+            );
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: errorMessage },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Put('/contactoCliente/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async contactarCliente(
+        @Param('id') _id: string,
+        @Req() req: Request & { user: any },
+        @Body() data: { cuerpoCorreo: string; emailsExtra: string[] },
+        @UploadedFiles() files: Express.Multer.File[],
+        @Token() token: string,
+    ) {
+        try {
+            const cuerpoCorreo = data.cuerpoCorreo;
+            const emails_extra = data.emailsExtra;
+            return this.putticketsService.contactarCliente(
+                _id,
+                req.user,
+                cuerpoCorreo,
+                emails_extra,
+                files,
+                token,
+            );
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: errorMessage },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
 
 };
