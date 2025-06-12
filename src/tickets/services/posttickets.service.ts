@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Estado } from 'src/schemas/estados.schema';
 import { Ticket } from 'src/schemas/ticket.schema';
-import { Usuario } from 'src/schemas/usuarios.schema';
 import { GetTicketsService } from './gettickets.service';
 import { calcularFechaResolucion } from 'src/common/utils/calcularFechaResolucion';
 import { fechaDefecto, obtenerFechaActual } from 'src/common/utils/fechas';
@@ -10,9 +9,7 @@ import { historicoCreacion } from 'src/common/utils/historico';
 import { guardarArchivos } from 'src/common/utils/guardarArchivos';
 import { UserService } from './user.service';
 import { ClienteService } from './cliente.service';
-import { Clientes } from 'src/schemas/cliente.schema';
 import { CorreoService } from './correos.service';
-import { channel } from 'diagnostics_channel';
 import { CounterService } from './counter.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Model, Connection, ClientSession, Types } from 'mongoose';

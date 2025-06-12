@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import { Ticket } from 'src/schemas/ticket.schema';
 
 export const generarCorreoData = async (ticket: any) => {
   try {

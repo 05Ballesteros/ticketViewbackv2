@@ -1,6 +1,6 @@
 // src/tickets/schemas/ticket.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import mongoose, { Types, Document } from 'mongoose';
+import { Types, Document } from 'mongoose';
 import { HistoryItem, HistoryItemSchema } from './history-item.schema';
 
 @Schema({ collection: 'Tickets' }) // Nombre correcto de la colección

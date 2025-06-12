@@ -44,16 +44,18 @@ export class CorreoService {
             ...formData.getHeaders(),
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.status === 201 && response.data.success) {
         return response.data;
       } else {
         console.error(
-          "⚠️    Hubo un problema al enviar el correo:", response.data.message || response.data);
+          '⚠️    Hubo un problema al enviar el correo:',
+          response.data.message || response.data,
+        );
       }
-      throw new BadRequestException("Ocurrio un error al enviar al correo.");
+      throw new BadRequestException('Ocurrio un error al enviar al correo.');
     } catch (error) {
       console.error('Error al enviar el correo:', error);
       throw new BadRequestException('Error al enviar el correo.');

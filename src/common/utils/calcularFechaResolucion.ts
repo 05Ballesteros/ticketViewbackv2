@@ -1,6 +1,6 @@
 // src/utils/date.utils.ts
 import { addHours, setHours, setMinutes, addDays, getDay } from 'date-fns';
-import { obtenerFechaActual, fechaDefecto } from 'src/common/utils/fechas';
+import { obtenerFechaActual } from 'src/common/utils/fechas';
 
 const HORARIO_INICIO = 8;
 const HORARIO_FIN = 16;
