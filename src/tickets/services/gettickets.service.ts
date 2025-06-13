@@ -26,38 +26,6 @@ import { Medio } from 'src/schemas/mediocontacto.schema';
 import { Categorizacion } from 'src/schemas/categorizacion.schema';
 import { sub } from 'date-fns';
 import { th } from 'date-fns/locale';
-
-interface Cliente {
-    _id: Types.ObjectId;
-    Nombre: string;
-    Correo: string;
-    Dependencia: Types.ObjectId;
-    Direccion_General: Types.ObjectId;
-    direccion_area: Types.ObjectId;
-    Telefono: string;
-    Extension?: string;
-    Ubicacion?: string;
-}
-
-interface UsuarioI {
-    _id: Types.ObjectId;
-    Nombre: string;
-    Correo: string;
-    isActive: boolean;
-    Area: string[];
-    Rol: string;
-    Dependencia: Types.ObjectId;
-    Direccion_General: Types.ObjectId;
-    Direccion: {
-        Pais: string;
-        Ciudad: string;
-        codigoPostal: string;
-    };
-    Telefono: string;
-    Extension?: string;
-    Puesto: string;
-    Ubicacion?: string;
-}
 @Injectable()
 export class GetTicketsService {
     constructor(
@@ -80,21 +48,43 @@ export class GetTicketsService {
         let result: TicketDocument[] = [];
         const { rol, areas } = user;
         const userObjectId = new Types.ObjectId(user.userId);
-        const estadoticket = await this.estadoModel.findOne({ Estado: { $regex: new RegExp(`^${estado}$`, 'i') } }).select('_id').exec();
+        const estadoticket = await this.estadoModel
+            .findOne({ Estado: { $regex: new RegExp(`^${estado}$`, 'i') } })
+            .select('_id')
+            .exec();
         console.log(estadoticket);
-        if (rol === "Usuario") {
-            result = await this.ticketModel.find({ Reasignado_a: userObjectId, Estado: estadoticket?._id }).populate('Reasignado_a').exec();
-        } else if (rol === "Moderador") {
-            if (estado === "NUEVOS") {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id }).exec();
-            } else if (estado === "REVISION") {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id, Area: areas });
-            } else if (estado === "ABIERTOS") {
-                result = await this.ticketModel.find({ Reasignado_a: userObjectId, Estado: estadoticket?._id });
-            } else if (estado === "REABIERTOS") {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Estado: estadoticket?._id });
+        if (rol === 'Usuario') {
+            result = await this.ticketModel
+                .find({ Reasignado_a: userObjectId, Estado: estadoticket?._id })
+                .populate('Reasignado_a')
+                .exec();
+        } else if (rol === 'Moderador') {
+            if (estado === 'NUEVOS') {
+                result = await this.ticketModel
+                    .find({ Asignado_a: userObjectId, Estado: estadoticket?._id })
+                    .exec();
+            } else if (estado === 'REVISION') {
+                result = await this.ticketModel.find({
+                    Asignado_a: { $in: [userObjectId] },
+                    Estado: estadoticket?._id,
+                    Area: { $in: areas },
+                });
+            } else if (estado === 'ABIERTOS') {
+                result = await this.ticketModel.find({
+                    Reasignado_a: userObjectId,
+                    Estado: estadoticket?._id,
+                });
+            } else if (estado === 'REABIERTOS') {
+                result = await this.ticketModel.find({
+                    Asignado_a: userObjectId,
+                    Estado: estadoticket?._id,
+                });
             } else {
-                result = await this.ticketModel.find({ Asignado_a: userObjectId, Reasignado_a: userObjectId, Estado: estadoticket?._id });
+                result = await this.ticketModel.find({
+                    Asignado_a: userObjectId,
+                    Reasignado_a: userObjectId,
+                    Estado: estadoticket?._id,
+                });
             }
         } else {
             result = await this.ticketModel.find({ Estado: estadoticket?._id });
@@ -105,7 +95,7 @@ export class GetTicketsService {
             return formattedTickets;
         }
         return result;
-    };
+    }
 
     async getReabrirFields() {
         try {

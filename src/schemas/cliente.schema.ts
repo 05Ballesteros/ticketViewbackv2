@@ -12,7 +12,7 @@ export class Clientes extends Document {
   @Prop({ type: Types.ObjectId, ref: 'Dependencia', required: true })
   Dependencia: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Direccion_general' })
+  @Prop({ type: Types.ObjectId, ref: 'DireccionGeneral' })
   Direccion_General: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'DireccionArea' })

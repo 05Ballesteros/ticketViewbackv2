@@ -4,7 +4,7 @@ import { Document, Types } from 'mongoose';
 @Schema({ collection: 'Direccion_general' })
 export class DireccionGeneral extends Document {
   @Prop({ required: true })
-  direccion_area: Types.ObjectId;
+  direccion_general: Types.ObjectId;
 }
 
 export const DireccionGeneralSchema = SchemaFactory.createForClass(DireccionGeneral);
