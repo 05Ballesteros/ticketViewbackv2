@@ -1,5 +1,5 @@
 import {
-    BadRequestException, Injectable, InternalServerErrorException,NotFoundException,
+    BadRequestException, Injectable, InternalServerErrorException, NotFoundException,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Estado } from 'src/schemas/estados.schema';
@@ -19,6 +19,7 @@ import incTicketsUsuario from 'src/common/utils/ticketEnTiempo';
 import * as fs from 'fs';
 import FormData = require('form-data');
 import { Clientes } from 'src/schemas/cliente.schema';
+import { validarRol } from 'src/common/utils/validacionRolUsuario';
 
 @Injectable()
 export class PutTicketsService {
@@ -92,13 +93,12 @@ export class PutTicketsService {
             };
 
             // Agregar `Reasignado_a` solo si es necesario
-            if (rolAsignado !== "Usuario") {
-                updateData.$set.Asignado_a = new Types.ObjectId(ticketData.Asignado_a);
-            } else if (Moderador) {
-                updateData.$set.Asignado_a = new Types.ObjectId(Moderador);
-                updateData.$set.Reasignado_a = new Types.ObjectId(ticketData.Asignado_a);
-            }
-
+            const propiedadesRol = await validarRol(rolAsignado, Moderador, ticketData);
+            // Agregar dinámicamente las propiedades al objeto `updateData.$set`
+            updateData.$set = {
+                ...updateData.$set,
+                ...propiedadesRol, // Combina las propiedades retornadas
+            };
             //5.- Actualizar el ticket
             const updatedTicket = await this.ticketModel.findByIdAndUpdate(
                 { _id: id },
@@ -126,7 +126,6 @@ export class PutTicketsService {
                     throw new BadRequestException("No se encontró el ticket para actualizar archivos.");
                 }
             }
-            console.log(updatedTicket.Asignado_a[0], updatedTicket.Reasignado_a[0]);
             //Se valida a quien se va enviar el correo de asignación
             const Usuario = await this.userService.getUsuario(
                 (updatedTicket.Reasignado_a && updatedTicket.Reasignado_a.length > 0
@@ -191,9 +190,10 @@ export class PutTicketsService {
 
 
             const Reasignado = ticketData.Reasignado_a;
+            const Usuario = await this.userService.getUsuario(Reasignado);
             // 1.- Obtener area del reasignado para actualizar el ticket
             const areaReasignado = await this.userService.getareaAsignado(Reasignado);
-            const Usuario = await this.userService.getUsuario(Reasignado);
+            const rolReasignado = await this.userService.getRolAsignado(ticketData.Reasignado_a);
             if (!areaReasignado) {
                 console.log("Transacción abortada.");
                 await session.abortTransaction();
@@ -214,7 +214,6 @@ export class PutTicketsService {
             const updateData: any = {
                 $set: {
                     ...reasignado,
-                    Reasignado_a: [reasignado.Reasignado_a],
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     Estado,
                     vistoBueno: reasignado.vistoBueno,
@@ -224,6 +223,12 @@ export class PutTicketsService {
                     Historia_ticket: { $each: Historia_ticket },
                 },
             };
+            if (rolReasignado !== "Usuario") {
+                updateData.$set.Asignado_a = new Types.ObjectId(ticketData.Reasignado_a);
+                updateData.$set.Reasignado_a = [];
+            } else {
+                updateData.$set.Reasignado_a = new Types.ObjectId(ticketData.Reasignado_a);
+            }
             //4.- Actualizar el ticket
             const updatedTicket = await this.ticketModel.findOneAndUpdate(
                 { _id: id },

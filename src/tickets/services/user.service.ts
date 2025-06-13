@@ -42,13 +42,13 @@ export class UserService {
         try {
             // Convertir el string a ObjectId
             const objectId = new Types.ObjectId(id);
-            const usuario = await this.usuarioModel.findOne({ _id: objectId });
+            const usuario = await this.usuarioModel.findOne({ _id: objectId }).populate("Rol");
             return usuario;
         } catch (error) {
             console.log(error);
             throw new BadRequestException("No se encontro el Asignado");
         }
-    }
+    };
 
     async getareaAsignado(userId: any) {
         try {

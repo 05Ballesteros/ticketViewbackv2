@@ -16,6 +16,7 @@ import { channel } from 'diagnostics_channel';
 import { CounterService } from './counter.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Model, Connection, ClientSession, Types } from 'mongoose';
+import { validarRol } from 'src/common/utils/validacionRolUsuario';
 
 @Injectable()
 export class PostTicketsService {
@@ -43,14 +44,18 @@ export class PostTicketsService {
             const Fecha_limite = calcularFechaResolucion(dto.Tiempo);
             //5.- Obtencion del asignado
             const asignado = await this.userService.getUsuario(dtoAsignado.Asignado_a);
+            const rolAsignado = await this.userService.getRolAsignado(asignado?._id);
             //6.- Se obtiene el cliente
             const cliente = await this.clienteService.getCliente(dto.Cliente);
             //5.- LLenado del hostorico
             const Historia_ticket = await historicoCreacion(user, asignado);
+            const RolModerador = await this.userService.getRolModerador("Moderador");
+            const Moderador = await this.userService.getModeradorPorAreayRol(asignado?.Area, RolModerador);
+            const Id = await this.counterService.getNextSequence('Id');
+            console.log(Id);
             let data = {
                 Cliente: new Types.ObjectId(dto.Cliente),
                 Medio: new Types.ObjectId(dto.Medio),
-                Asignado_a: new Types.ObjectId(dto.Asignado_a),
                 Subcategoria: new Types.ObjectId(dto.Subcategoria),
                 Descripcion: dto.Descripcion,
                 NumeroRec_Oficio: dto.NumeroRec_Oficio,
@@ -65,20 +70,26 @@ export class PostTicketsService {
                 Fecha_hora_resolucion: fechaDefecto,
                 Fecha_hora_reabierto: fechaDefecto,
                 Historia_ticket: Historia_ticket,
-                Id: await this.counterService.getNextSequence('Id'),
+                Id: Id,
+            };
+            // Agregar `Asignado_a o Reasignado_a segun el rol` 
+            const propiedadesRol = await validarRol(rolAsignado, Moderador, dto);
+            console.log("propiedadesRol", propiedadesRol);
+            // Agregar dinámicamente las propiedades al objeto `updateData.$set`
+            data = {
+                ...data,
+                ...propiedadesRol,
             };
             //6.- Se guarda el ticket
             console.log("Guardando ticket");
             let ticketInstance = new this.ticketModel(data);
             const savedTicket = await ticketInstance.save({ session });
-            await session.commitTransaction();
-            session.endSession();
             if (!savedTicket) { throw new BadRequestException('No se creó el ticket.'); }
             console.log("Ticket guardado correctamente");
             //7.- Se valida si el ticket se guardo correctamente y si hay archivos para guardar
             if (files.length > 0) {
                 const { data: uploadedFiles } = await guardarArchivos(token, files);
-                if(uploadedFiles){console.log("Archivos guardados correctamente");}
+                if (uploadedFiles) { console.log("Archivos guardados correctamente"); }
                 const updatedTicket = await this.ticketModel.findByIdAndUpdate(
                     { _id: ticketInstance._id },
                     { $push: { Files: { $each: uploadedFiles.map((file) => ({ ...file, _id: new Types.ObjectId(), })), }, }, },
@@ -91,9 +102,15 @@ export class PostTicketsService {
                 ticketInstance = updatedTicket;
             }
             //8.- Se genera el correoData
+            const Usuario = await this.userService.getUsuario(
+                (savedTicket.Reasignado_a && savedTicket.Reasignado_a.length > 0
+                    ? savedTicket.Reasignado_a[0]
+                    : savedTicket.Asignado_a[0]
+                ).toString()
+            );
             let correoData = {
                 idTicket: savedTicket.Id,
-                correoUsuario: asignado?.Correo,
+                correoUsuario: Usuario?.Correo,
                 correoCliente: cliente?.Correo,
                 extensionCliente: cliente?.Extension,
                 descripcionTicket: savedTicket.Descripcion,
@@ -108,6 +125,8 @@ export class PostTicketsService {
             if (correo) {
                 console.log("Mensaje enviado al email service");
             }
+            await session.commitTransaction();
+            session.endSession();
             return savedTicket;
         } catch (error) {
             await this.counterService.decrementSequence('Id');
