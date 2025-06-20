@@ -105,7 +105,7 @@ export class Ticket {
   @Prop({ type: String, default: '' })
   Descripcion_cierre: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Celula', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Celula', default: [] })
   Celula: Types.ObjectId;
 }
 
