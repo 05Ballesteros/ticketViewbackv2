@@ -1,4 +1,4 @@
-import { Type, Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
 import { IsString, IsBoolean, IsDate, IsArray, IsOptional, IsMongoId, IsNumber, IsNotEmpty, ValidateNested } from 'class-validator';
 
 export class FileDto {
@@ -14,18 +14,10 @@ export class FileDto {
   @IsNotEmpty()
   _id: string;
 }
-export class ReasignarTicketDto {
-  @IsString()
-  @IsOptional()
-  Nota: string;
+export class CerrarTicketDto {
 
   @IsString()
-  Reasignado_a: string;
-
-  @IsBoolean()
-  @IsOptional()
-  @Transform(({ value }) => value === 'true')
-  vistoBueno: boolean;
+  Descripcion_cierre: string;
 
   @ValidateNested({ each: true })
   @Type(() => FileDto)

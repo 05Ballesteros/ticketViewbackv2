@@ -1,5 +1,12 @@
 import { Type, Transform } from 'class-transformer';
-import { IsString, IsBoolean, IsDate, IsArray, IsOptional, IsMongoId, IsNumber, IsNotEmpty, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsMongoId,
+  IsNotEmpty,
+  ValidateNested
+} from 'class-validator';
 
 export class FileDto {
   @IsString()
@@ -14,22 +21,14 @@ export class FileDto {
   @IsNotEmpty()
   _id: string;
 }
-export class ReasignarTicketDto {
+
+export class NotaDto {
   @IsString()
   @IsOptional()
   Nota: string;
-
-  @IsString()
-  Reasignado_a: string;
-
-  @IsBoolean()
-  @IsOptional()
-  @Transform(({ value }) => value === 'true')
-  vistoBueno: boolean;
 
   @ValidateNested({ each: true })
   @Type(() => FileDto)
   @IsOptional()
   Files?: FileDto[];
-
 }

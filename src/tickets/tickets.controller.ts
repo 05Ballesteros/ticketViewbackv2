@@ -19,7 +19,9 @@ import { ReasignarTicketDto } from './dto/reasignar-ticket.dto';
 import { ResolverTicketDto } from './dto/resolver-ticket.dto';
 import { AceptarSolucionDto } from './dto/aceptarSolucion-ticket.dto';
 import { RechazarSolucionDto } from './dto/rechazarSolucion-ticket.dto';
-import { RegresarTicketMesaDto, RegresarTicketResolutorDto } from './dto/regresar-ticket.dto';
+import { RegresarTicketMesaDto, RegresarTicketModeradorDto, RegresarTicketResolutorDto } from './dto/regresar-ticket.dto';
+import { CerrarTicketDto } from './dto/cerrar-ticket.dto';
+import { NotaDto } from './dto/nota.dto';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard)
@@ -37,8 +39,11 @@ export class TicketsController {
         @UploadedFiles() files: Express.Multer.File[],
         @Body() dto: CreateTicketDto,      // <-- mapea y valida directo
         @Token() token: string,
-    ): Promise<Ticket> {
-        return this.postticketsService.crearTicket(dto, req.user, token, files);
+    ): Promise<{ message: string; }> {
+        const result = await this.postticketsService.crearTicket(dto, req.user, token, files);
+        return {
+            message: result.message,
+        };
     };
 
     @Put('asignar/:id')
@@ -49,8 +54,11 @@ export class TicketsController {
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: AsignarTicketDto,
-    ): Promise<Ticket> {
-        return this.putticketsService.asginarTicket(ticketData, req.user, token, files, id);
+    ): Promise<{ message: string; }> {
+        const result = await this.putticketsService.asginarTicket(ticketData, req.user, token, files, id);
+        return {
+            message: result.message,
+        };
     };
 
     @Put('reasignar/:id')
@@ -61,8 +69,11 @@ export class TicketsController {
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: ReasignarTicketDto,
-    ): Promise<Ticket> {
-        return this.putticketsService.reasginarTicket(ticketData, req.user, token, files, id);
+    ): Promise<{ message: string; }> {
+        const result = await this.putticketsService.reasginarTicket(ticketData, req.user, token, files, id);
+        return {
+            message: result.message,
+        };
     };
 
     @Put('reabrir/:id')
@@ -85,8 +96,11 @@ export class TicketsController {
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: ResolverTicketDto,
-    ): Promise<Ticket> {
-        return this.putticketsService.resolverTicket(ticketData, req.user, token, files, id);
+    ): Promise<{ message: string; }> {
+        const result = await this.putticketsService.resolverTicket(ticketData, req.user, token, files, id);
+        return {
+            message: result.message,
+        };
     };
 
     //NO es necesario enviar un formdata
@@ -95,8 +109,11 @@ export class TicketsController {
         @Param('id') id: string,
         @Req() req: any,
         @Body() ticketData: AceptarSolucionDto,
-    ): Promise<Ticket> {
-        return this.putticketsService.aceptarResolucion(ticketData, req.user, id);
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.aceptarResolucion(ticketData, req.user, id);
+        return {
+            message: result.message,
+        };
     };
 
     @Put('resolver/rechazar/:id')
@@ -107,9 +124,13 @@ export class TicketsController {
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: RechazarSolucionDto,
-    ): Promise<Ticket> {
-        return this.putticketsService.rechazarResolucion(ticketData, req.user, files, token, id);
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.rechazarResolucion(ticketData, req.user, files, token, id);
+        return {
+            message: result.message,
+        };
     };
+
     @Put('retornoMesa/:id')
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async retornarTicket(
@@ -118,8 +139,11 @@ export class TicketsController {
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: RegresarTicketMesaDto,
-    ): Promise<Ticket> {
-        return this.putticketsService.regresarTicketMesa(ticketData, req.user, files, token, id);
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.regresarTicketMesa(ticketData, req.user, files, token, id);
+        return {
+            message: result.message,
+        };
     };
 
     @Put('retornoModerador/:id')
@@ -129,9 +153,12 @@ export class TicketsController {
         @Req() req: any,
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
-        @Body() ticketData: RegresarTicketMesaDto,
-    ): Promise<Ticket> {
-        return this.putticketsService.regresarTicketModerador(ticketData, req.user, files, token, id);
+        @Body() ticketData: RegresarTicketModeradorDto,
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.regresarTicketModerador(ticketData, req.user, files, token, id);
+        return {
+            message: result.message,
+        };
     };
 
     @Put('regresar/:id')
@@ -142,10 +169,42 @@ export class TicketsController {
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: RegresarTicketResolutorDto,
-    ): Promise<Ticket> {
-        return this.putticketsService.regresarTicketResolutor(ticketData, req.user, files, token, id);
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.regresarTicketResolutor(ticketData, req.user, files, token, id);
+        return {
+            message: result.message,
+        };
+    };
+    
+    @Put('cerrar/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async cerrarTicket(
+        @Param('id') id: string,
+        @Req() req: any,
+        @Token() token: string,
+        @UploadedFiles() files: Express.Multer.File[],
+        @Body() ticketData: CerrarTicketDto,
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.cerrarTicket(ticketData, req.user, token, files, id);
+        return {
+            message: result.message,
+        };
     };
 
+    @Put('nota/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async agregarNota(
+        @Param('id') id: string,
+        @Req() req: any,
+        @Token() token: string,
+        @UploadedFiles() files: Express.Multer.File[],
+        @Body() ticketData: NotaDto,
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.agregarNota(ticketData, req.user, files, id, token);
+        return {
+            message: result.message,
+        };
+    };
 
 
     @Get('estado/:estado')

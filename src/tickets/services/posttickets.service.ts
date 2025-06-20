@@ -30,14 +30,12 @@ export class PostTicketsService {
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
     ) { }
-    async crearTicket(dto: any, user: any, token: string, files: any): Promise<Ticket> {
+    async crearTicket(dto: any, user: any, token: string, files: any): Promise<{ message: string;}> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
             //1.-Verificar el asignado
             const dtoAsignado = await this.userService.verificarAsignado(dto);
-            //2.- Verificar estado segun el asignado
-            const dtoEstado = await this.getticketsService.getestadoTicket(dtoAsignado);
             //3.- Obtener información con la subcategoria
             const Categorizacion = await this.getticketsService.getCategorizacion(new Types.ObjectId(dto.Subcategoria));
             //4.- Calcular las fechas
@@ -45,6 +43,8 @@ export class PostTicketsService {
             //5.- Obtencion del asignado
             const asignado = await this.userService.getUsuario(dtoAsignado.Asignado_a);
             const rolAsignado = await this.userService.getRolAsignado(asignado?._id);
+            //2.- Verificar estado segun el asignado
+            const Estado = await this.getticketsService.getestadoTicket(rolAsignado);
             //6.- Se obtiene el cliente
             const cliente = await this.clienteService.getCliente(dto.Cliente);
             //5.- LLenado del hostorico
@@ -52,7 +52,6 @@ export class PostTicketsService {
             const RolModerador = await this.userService.getRolModerador("Moderador");
             const Moderador = await this.userService.getModeradorPorAreayRol(asignado?.Area, RolModerador);
             const Id = await this.counterService.getNextSequence('Id');
-            console.log(Id);
             let data = {
                 Cliente: new Types.ObjectId(dto.Cliente),
                 Medio: new Types.ObjectId(dto.Medio),
@@ -60,7 +59,7 @@ export class PostTicketsService {
                 Descripcion: dto.Descripcion,
                 NumeroRec_Oficio: dto.NumeroRec_Oficio,
                 Creado_por: new Types.ObjectId(user.UserId),
-                Estado: dtoEstado.Estado,
+                Estado: Estado,
                 Area: Categorizacion?.Equipo,
                 Fecha_hora_creacion: obtenerFechaActual(),
                 Fecha_limite_resolucion_SLA: Fecha_limite,
@@ -74,7 +73,6 @@ export class PostTicketsService {
             };
             // Agregar `Asignado_a o Reasignado_a segun el rol` 
             const propiedadesRol = await validarRol(rolAsignado, Moderador, dto);
-            console.log("propiedadesRol", propiedadesRol);
             // Agregar dinámicamente las propiedades al objeto `updateData.$set`
             data = {
                 ...data,
@@ -127,7 +125,9 @@ export class PostTicketsService {
             }
             await session.commitTransaction();
             session.endSession();
-            return savedTicket;
+            return {
+                message:`Ticket ${savedTicket.Id} creado correctamente.`,
+            };
         } catch (error) {
             await this.counterService.decrementSequence('Id');
             await session.abortTransaction();

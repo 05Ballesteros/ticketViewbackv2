@@ -156,3 +156,31 @@ export const historicoRegresarResolutor = async (user: any, ticketData: any) => 
     ];
     return Historia_ticket;
 };
+
+export const historicoCerrar = async (user: any, ticketData: any) => {
+    const { userId, nombre, rol } = user;
+    const Historia_ticket = [
+        {
+            Nombre: userId,
+            Titulo: "Ticket Cerrado",
+            Mensaje: `El ticket fue cerrado por ${nombre}(${rol}).\nDescripción:\n${ticketData.Descripcion_cierre}`,
+            Fecha: obtenerFechaActual(),
+        },
+    ];
+
+    return Historia_ticket;
+};
+
+export const historicoNota = async (user: any, ticketData: any) => {
+    const { userId, nombre, rol } = user;
+    const Historia_ticket = [
+        {
+            Nombre: userId,
+            Titulo: "Nota agregada",
+            Mensaje: `Nota:\n${ticketData.Nota}`,
+            Fecha: obtenerFechaActual(),
+        },
+    ];
+
+    return Historia_ticket;
+};

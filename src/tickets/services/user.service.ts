@@ -50,6 +50,18 @@ export class UserService {
         }
     };
 
+    async getCorreoUsuario(id: any) {
+        try {
+            // Convertir el string a ObjectId
+            const objectId = new Types.ObjectId(id);
+            const usuario = await this.usuarioModel.findOne({ _id: objectId }).populate("Rol");
+            return usuario?.Correo;
+        } catch (error) {
+            console.log(error);
+            throw new BadRequestException("No se encontro el Asignado");
+        }
+    };
+
     async getareaAsignado(userId: any) {
         try {
             const result = await this.usuarioModel.findOne({ _id: userId }).lean();
@@ -63,23 +75,24 @@ export class UserService {
         }
     };
 
-    async getRolAsignado(userId: any): Promise<string | false> {
-        try {
-            const result = await this.usuarioModel
-                .findOne({ _id: userId })
-                .populate<{ Rol: { Rol: string } }>({ path: "Rol", select: "Rol" })
-                .lean<User>();
+    async getRolAsignado(userId: any): Promise<string> {
+    try {
+        const result = await this.usuarioModel
+            .findOne({ _id: userId })
+            .populate<{ Rol: { Rol: string } }>({ path: "Rol", select: "Rol" })
+            .lean<User>();
 
-            if (!result || !result.Rol) {
-                return false;
-            }
-
-            return result.Rol.Rol;
-        } catch (error) {
-            console.error("Error en getRolAsignado:", error.message);
-            return false;
+        if (!result || !result.Rol) {
+            throw new Error("El rol no fue encontrado para el usuario proporcionado.");
         }
-    };
+
+        return result.Rol.Rol;
+    } catch (error) {
+        console.error("Error en getRolAsignado:", error.message);
+        throw new Error("Error al obtener el rol del usuario.");
+    }
+}
+
 
     async getRolModerador(Rol: string) {
         try {
@@ -120,5 +133,16 @@ export class UserService {
             return false;
         }
         return true;
+    };
+
+    async getUsuarioMesa(Username: string) {
+        try {
+            // Convertir el string a ObjectId
+            const usuario = await this.usuarioModel.findOne({ Username: Username }).populate("Rol");
+            return usuario?._id;
+        } catch (error) {
+            console.log(error);
+            throw new BadRequestException("No se encontro el Asignado");
+        }
     };
 };

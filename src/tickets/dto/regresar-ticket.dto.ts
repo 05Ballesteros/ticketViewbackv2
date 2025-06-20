@@ -14,6 +14,7 @@ export class FileDto {
   @IsNotEmpty()
   _id: string;
 }
+
 export class RegresarTicketMesaDto {
   @IsString()
   descripcion_retorno: string;
@@ -22,8 +23,18 @@ export class RegresarTicketMesaDto {
   @Type(() => FileDto)
   @IsOptional()
   Files?: FileDto[];
-
 }
+
+export class RegresarTicketModeradorDto {
+  @IsString()
+  descripcion_retorno: string;
+
+  @ValidateNested({ each: true })
+  @Type(() => FileDto)
+  @IsOptional()
+  Files?: FileDto[];
+}
+
 export class RegresarTicketResolutorDto {
   @IsString()
   Descripcion_respuesta_cliente: string;

@@ -47,6 +47,7 @@ export class GetTicketsService {
     async getTickets(estado: string, user: any): Promise<Ticket[] | null> {
         let result: TicketDocument[] = [];
         const { rol, areas } = user;
+        const areasObjectId = areas.map((area) => new Types.ObjectId(area));
         const userObjectId = new Types.ObjectId(user.userId);
         const estadoticket = await this.estadoModel
             .findOne({ Estado: { $regex: new RegExp(`^${estado}$`, 'i') } })
@@ -67,7 +68,7 @@ export class GetTicketsService {
                 result = await this.ticketModel.find({
                     Asignado_a: { $in: [userObjectId] },
                     Estado: estadoticket?._id,
-                    Area: { $in: areas },
+                    Area: { $in: areasObjectId },
                 });
             } else if (estado === 'ABIERTOS') {
                 result = await this.ticketModel.find({
@@ -529,20 +530,18 @@ export class GetTicketsService {
     };
 
     //Esta función si se utiliza
-    async getestadoTicket(dto: any) {
+    async getestadoTicket(Rol: string) {
         try {
             let estado;
 
-            if (dto.hasResolutor) {
+            if (Rol === "Usuario") {
                 estado = await this.estadoModel.findOne({ Estado: "ABIERTOS" }).select("_id");
-            } else if (dto.standby) {
-                estado = await this.estadoModel.findOne({ Estado: "STANDBY" }).select("_id");
-            } else {
+            } else if (Rol === "Moderador") {
                 estado = await this.estadoModel.findOne({ Estado: "NUEVOS" }).select("_id");
+            } else {
+                estado = await this.estadoModel.findOne({ Estado: "STANDBY" }).select("_id");
             }
-
-            dto.Estado = estado;
-            return dto;
+            return estado;
         } catch (error) {
             throw new BadRequestException("No se encontró el estado.");
         }
@@ -551,7 +550,8 @@ export class GetTicketsService {
     async getEstado(estado: any) {
         try {
             const estadoticket = await this.estadoModel.findOne({ Estado: estado }).select("_id");
-            return estadoticket;
+            console.log(estadoticket);
+            return estadoticket?._id;
         } catch (error) {
             throw new BadRequestException("No se encontró el estado.");
         }
