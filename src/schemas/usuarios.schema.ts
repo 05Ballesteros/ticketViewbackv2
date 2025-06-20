@@ -61,6 +61,9 @@ export class Usuario extends Document {
     a_tiempo: number;
     fuera_tiempo: number;
   };
+
+  @Prop({ type: [Types.ObjectId], ref: 'Celula' })
+  Celula: Types.ObjectId[];
 }
 
 export const UsuarioSchema = SchemaFactory.createForClass(Usuario);

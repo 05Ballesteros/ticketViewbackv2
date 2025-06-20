@@ -97,6 +97,24 @@ export class GetTicketsService {
         return result;
     }
 
+    async getTicket(id: string): Promise<Ticket[] | null> {
+        try {
+            const result = await this.ticketModel.find({ Id: id });
+
+            if (!result) {
+                throw new NotFoundException("No se encontro el ticket")
+            }
+
+
+            const populatedTickets = await populateTickets(result);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+
+        } catch (error) {
+            throw new BadRequestException()
+        }
+    }
+
     async getReabrirFields() {
         try {
             const areas = await this.areaModel.find().exec();

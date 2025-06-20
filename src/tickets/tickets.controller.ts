@@ -148,6 +148,12 @@ export class TicketsController {
 
 
 
+    @Get('/:id')
+    getTicket(
+        @Param('id') id: string) {
+        return this.getticketsService.getTicket(id);
+    };
+
     @Get('estado/:estado')
     getTickets(
         @Param('estado') estado: string,
