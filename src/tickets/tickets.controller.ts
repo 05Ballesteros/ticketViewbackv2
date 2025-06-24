@@ -22,6 +22,9 @@ import { RechazarSolucionDto } from './dto/rechazarSolucion-ticket.dto';
 import { RegresarTicketMesaDto, RegresarTicketModeradorDto, RegresarTicketResolutorDto } from './dto/regresar-ticket.dto';
 import { CerrarTicketDto } from './dto/cerrar-ticket.dto';
 import { NotaDto } from './dto/nota.dto';
+import { PendingReasonDto } from './dto/pendingReason.dto';
+import { OficioDto } from './dto/oficio.dto';
+import { EditTicketDto } from './dto/edit-ticket.dto';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard)
@@ -175,7 +178,7 @@ export class TicketsController {
             message: result.message,
         };
     };
-    
+
     @Put('cerrar/:id')
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async cerrarTicket(
@@ -206,7 +209,51 @@ export class TicketsController {
         };
     };
 
+    @Put('oficio/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async agregarOficio(
+        @Param('id') id: string,
+        @Req() req: any,
+        @UploadedFiles() files: Express.Multer.File[],
+        @Body() ticketData: OficioDto,
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.agregarOficio(ticketData, req.user, files, id);
+        return {
+            message: result.message,
+        };
+    };
 
+    @Put('PendingReason/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async PendingReason(
+        @Param('id') id: string,
+        @Req() req: any,
+        @Body() ticketData: PendingReasonDto,
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.PendingReason(ticketData, req.user, id);
+        return {
+            message: result.message,
+        };
+    };
+
+    @Put('editar/:id')
+    @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+    async editarTicket(
+        @Param('id') id: string,
+        @Req() req: any,
+        @Body() ticketData,
+    ): Promise<{ message: string }> {
+        const result = await this.putticketsService.editarTicket(ticketData, req.user, id);
+        return {
+            message: result.message,
+        };
+    };
+
+    @Get('medios')
+    async getMedios() {
+        return await this.getticketsService.getMedios();
+    };
+    
     @Get('/:id')
     getTicket(
         @Param('id') id: string) {
@@ -217,44 +264,44 @@ export class TicketsController {
     getTickets(
         @Param('estado') estado: string,
         @Req() req: any,) {
-        const user = req.user;
-        return this.getticketsService.getTickets(estado, user);
-    };
-
-    @Get('reabrir/fields')
-    getreabrirFields() {
-        return this.getticketsService.getReabrirFields();
-    };
-
-    @Get('asignar/areas')
-    getareasAsignacion() {
-        return this.getticketsService.getareasAsignacion();
-    };
-
-    @Get('reasignar/areas')
-    getareasResignacion(@Req() req: any) {
-        const user = req.user;
-        return this.getticketsService.getareasReasignacion(user);
-    };
-
-    @Get('crear/getInfoSelects')
-    getInfoSelects() { return this.getticketsService.getInfoSelects(); };
-
-    @Get('historico')
-    getAreas() { return this.getticketsService.getAreas(); };
-
-    @Get('historico/area')
-    getTicketsPorArea(@Query('area') area: string) {
-        try {
-            return this.getticketsService.getTicketsPorArea(area);
-        } catch (error) {
-            throw new HttpException(
-                { message: 'Error interno al obtener los tickets.', details: error.message },
+            const user = req.user;
+            return this.getticketsService.getTickets(estado, user);
+        };
+        
+        @Get('reabrir/fields')
+        getreabrirFields() {
+            return this.getticketsService.getReabrirFields();
+        };
+        
+        @Get('asignar/areas')
+        getareasAsignacion() {
+            return this.getticketsService.getareasAsignacion();
+        };
+        
+        @Get('reasignar/areas')
+        getareasResignacion(@Req() req: any) {
+            const user = req.user;
+            return this.getticketsService.getareasReasignacion(user);
+        };
+        
+        @Get('crear/getInfoSelects')
+        getInfoSelects() { return this.getticketsService.getInfoSelects(); };
+        
+        @Get('historico')
+        getAreas() { return this.getticketsService.getAreas(); };
+        
+        @Get('historico/area')
+        getTicketsPorArea(@Query('area') area: string) {
+            try {
+                return this.getticketsService.getTicketsPorArea(area);
+            } catch (error) {
+                throw new HttpException(
+                    { message: 'Error interno al obtener los tickets.', details: error.message },
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     };
-
+    
     @Get('resolutor/:id')
     async getTicketsResolutor(@Param('id') userid: string) {
         try {
@@ -265,7 +312,7 @@ export class TicketsController {
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
-
+        
     };
 
     @Get('export/excel')
@@ -285,7 +332,7 @@ export class TicketsController {
             );
         }
     };
-
+    
     @Get('clientes/dependencias')
     getDependenciasCLientes() {
         try {
@@ -297,7 +344,7 @@ export class TicketsController {
             );
         }
     };
-
+    
     @Get('correos/:id')
     getCorreos(@Param('id') id: string) {
         try {
@@ -309,7 +356,7 @@ export class TicketsController {
             );
         }
     };
-
+    
     @Get('buscar/:id')
     async getTicketsPorId(@Param('id') id: string) {
         try {
@@ -321,7 +368,7 @@ export class TicketsController {
             );
         }
     };
-
+    
     @Get('calendario')
     async getCalendario(@Req() req: any) {
         try {
@@ -334,7 +381,7 @@ export class TicketsController {
             );
         }
     };
-
+    
     @Get('perfil')
     async getPerfil(@Req() req: any) {
         try {
@@ -347,7 +394,7 @@ export class TicketsController {
             );
         }
     };
-
+    
     @Put('/pendiente/:id')
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async marcarTicketPendiente(
@@ -370,14 +417,14 @@ export class TicketsController {
             );
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-
+            
             throw new HttpException(
                 { message: 'Error interno al obtener los tickets.', details: errorMessage },
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     }
-
+    
     @Put('/contactoCliente/:id')
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async contactarCliente(
@@ -400,12 +447,12 @@ export class TicketsController {
             );
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-
+            
             throw new HttpException(
                 { message: 'Error interno al obtener los tickets.', details: errorMessage },
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     }
-
+    
 };

@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Estado } from 'src/schemas/estados.schema';
 import { Model, Types } from 'mongoose';
@@ -53,7 +53,6 @@ export class GetTicketsService {
             .findOne({ Estado: { $regex: new RegExp(`^${estado}$`, 'i') } })
             .select('_id')
             .exec();
-        console.log(estadoticket);
         if (rol === 'Usuario') {
             result = await this.ticketModel
                 .find({ Reasignado_a: userObjectId, Estado: estadoticket?._id })
@@ -88,7 +87,7 @@ export class GetTicketsService {
                 });
             }
         } else {
-            result = await this.ticketModel.find({ Estado: estadoticket?._id });
+            result = await this.ticketModel.find({ Estado: estadoticket?._id }).populate('Creado_por');
         }
         if (result.length > 0) {
             const populatedTickets = await populateTickets(result);
@@ -115,6 +114,22 @@ export class GetTicketsService {
             throw new BadRequestException()
         }
     }
+
+    async getMedios() {
+        try {
+            const medios = await this.medioModel.find().sort({ Medio: 1 });
+            const groupedMedios = medios.map((a) => ({
+                label: a.Medio,
+                value: a._id,
+            }));
+            return groupedMedios;
+        } catch (error) {
+            throw new InternalServerErrorException(
+                'Ocurrió un error al obtener la información para los select de los medios',
+            );
+        }
+    };
+
 
     async getReabrirFields() {
         try {
@@ -568,7 +583,6 @@ export class GetTicketsService {
     async getEstado(estado: any) {
         try {
             const estadoticket = await this.estadoModel.findOne({ Estado: estado }).select("_id");
-            console.log(estadoticket);
             return estadoticket?._id;
         } catch (error) {
             throw new BadRequestException("No se encontró el estado.");

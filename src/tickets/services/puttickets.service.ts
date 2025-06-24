@@ -9,7 +9,7 @@ import { GetTicketsService } from './gettickets.service';
 import { calcularFechaResolucion } from 'src/common/utils/calcularFechaResolucion';
 import { fechaDefecto, obtenerFechaActual } from 'src/common/utils/fechas';
 import { addHours } from 'date-fns';
-import { historicoAceptarSolucion, historicoAsignacion, historicoCerrar, historicoCreacion, historicoNota, historicoReabrir, historicoReasignacion, historicoRechazarSolucion, historicoRegresarMesa, historicoRegresarModerador, historicoRegresarResolutor, historicoResolver } from 'src/common/utils/historico';
+import { historicoAceptarSolucion, historicoAsignacion, historicoCerrar, historicoCreacion, historicoEditar, historicoNota, historicoOficio, historicoPendingReason, historicoReabrir, historicoReasignacion, historicoRechazarSolucion, historicoRegresarMesa, historicoRegresarModerador, historicoRegresarResolutor, historicoResolver } from 'src/common/utils/historico';
 import { guardarArchivos } from 'src/common/utils/guardarArchivos';
 import { UserService } from './user.service';
 import { ClienteService } from './cliente.service';
@@ -916,7 +916,7 @@ export class PutTicketsService {
                 session.endSession();
                 return { message: `No fue posible agregar la Nota.` };
             }
-            
+
             console.log("ticket", updatedTicket);
             if (user.Rol === "Usuario") {
                 Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
@@ -958,9 +958,7 @@ export class PutTicketsService {
             console.error("Error al crear el Ticket:", error.message);
             throw new BadRequestException("Error interno del servidor.");
         }
-    }
-
-
+    };
     async marcarTicketPendiente(
         _id: string,
         user: { userId: string; nombre: string },
@@ -1037,8 +1035,7 @@ export class PutTicketsService {
             console.error('Error al marcar el ticket como pendiente', error);
             throw new InternalServerErrorException('Error interno del servidor.');
         }
-    }
-
+    };
     async contactarCliente(
         _id: string,
         user: { userId: string; nombre: string },
@@ -1113,5 +1110,102 @@ export class PutTicketsService {
             console.error('Error al contactar al cliente', error);
             throw new InternalServerErrorException('Error interno del servidor.');
         }
-    }
+    };
+    async PendingReason(ticketData: any, user: any, id: string): Promise<{ message: string; }> {
+        const session: ClientSession = await this.connection.startSession();
+        session.startTransaction();
+        try {
+            console.log("ticketData", ticketData);
+            const Historia_ticket = await historicoPendingReason(user, ticketData);
+            const updateData: any = {
+                $set: { PendingReason: ticketData.PendingReason },
+                $push: { Historia_ticket: { $each: Historia_ticket } },
+            };
+
+            const updatedTicket = await this.ticketModel.findByIdAndUpdate(
+                { _id: id },
+                updateData,
+                { new: true, upsert: true }
+            );
+            console.log(updatedTicket);
+            if (!updatedTicket) {
+                console.log("Transacción abortada.");
+                await session.abortTransaction();
+                session.endSession();
+                return { message: `No fue posible agregar la Nota.` };
+            } else {
+                return { message: `PendingReason agregada correctamente al Ticket ${updatedTicket.Id}.` };
+            }
+
+        } catch (error) {
+            console.error("Error al crear el Ticket:", error.message);
+            throw new BadRequestException("Error interno del servidor.");
+        }
+    };
+    async editarTicket(ticketData: any, user: any, id: string): Promise<{ message: string; }> {
+        console.log("DATA", ticketData);
+        const session: ClientSession = await this.connection.startSession();
+        session.startTransaction();
+        try {
+            console.log("ticketData", ticketData);
+            const Historia_ticket = await historicoEditar(user);
+            const updateData: any = {
+                $set: {
+                    Medio: ticketData.Medio,
+                    Numero_Oficio: ticketData.NumeroRec_Oficio,
+                    Descripcion: ticketData.Descripcion,
+                },
+                $push: { Historia_ticket: { $each: Historia_ticket } },
+            };
+
+            const updatedTicket = await this.ticketModel.findByIdAndUpdate(
+                { _id: id },
+                updateData,
+                { new: true, upsert: true }
+            );
+            console.log(updatedTicket);
+            if (!updatedTicket) {
+                console.log("Transacción abortada.");
+                await session.abortTransaction();
+                session.endSession();
+                return { message: `No fue posible editar el ticket.` };
+            } else {
+                return { message: `Ticket ${updatedTicket.Id} editado correctamente.` };
+            }
+
+        } catch (error) {
+            console.error("Error al crear el Ticket:", error.message);
+            throw new BadRequestException("Error interno del servidor.");
+        }
+    };
+    async agregarOficio(ticketData: any, user: any, files: any, id: string): Promise<{ message: string; }> {
+        const session: ClientSession = await this.connection.startSession();
+        session.startTransaction();
+        try {
+            const Historia_ticket = await historicoOficio(user, ticketData);
+            const updateData: any = {
+                $set: { Numero_Oficio: ticketData.Numero_Oficio },
+                $push: { Historia_ticket: { $each: Historia_ticket } },
+            };
+
+            const updatedTicket = await this.ticketModel.findByIdAndUpdate(
+                { _id: id },
+                updateData,
+                { new: true, upsert: true }
+            );
+
+            if (!updatedTicket) {
+                console.log("Transacción abortada.");
+                await session.abortTransaction();
+                session.endSession();
+                return { message: `No fue posible agregar el oficio.` };
+            } else {
+                return { message: `Oficio de cierre agregado correctamente al Ticket ${updatedTicket.Id}.` };
+            }
+
+        } catch (error) {
+            console.error("Error al crear el Ticket:", error.message);
+            throw new BadRequestException("Error interno del servidor.");
+        }
+    };
 }; 

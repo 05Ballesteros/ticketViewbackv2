@@ -184,3 +184,45 @@ export const historicoNota = async (user: any, ticketData: any) => {
 
     return Historia_ticket;
 };
+
+export const historicoPendingReason = async (user: any, ticketData: any) => {
+    const { userId, nombre, rol } = user;
+    const Historia_ticket = [
+        {
+            Nombre: userId,
+            Titulo: "Razón pendiente",
+            Mensaje: `Descripción:\n${ticketData.PendingReason}`,
+            Fecha: obtenerFechaActual(),
+        },
+    ];
+
+    return Historia_ticket;
+};
+
+export const historicoOficio = async (user: any, ticketData: any) => {
+    const { userId, nombre, rol } = user;
+    const Historia_ticket = [
+        {
+            Nombre: userId,
+            Titulo: "Oficio de cierre agregado",
+            Mensaje: `Oficio:\n${ticketData.Numero_Oficio}`,
+            Fecha: obtenerFechaActual(),
+        },
+    ];
+
+    return Historia_ticket;
+};
+
+export const historicoEditar = async (user: any) => {
+    const { userId, nombre, rol } = user;
+    const Historia_ticket = [
+        {
+            Nombre: userId,
+            Titulo: "Ticket editado",
+            Mensaje: `El ticket ha sido editado por ${nombre} (${rol}).`,
+            Fecha: obtenerFechaActual(),
+        },
+    ];
+
+    return Historia_ticket;
+};

@@ -104,6 +104,9 @@ export class Ticket {
 
   @Prop({ type: String, default: '' })
   Descripcion_cierre: string;
+  
+  @Prop({ type: String, default: '' })
+  PendingReason: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Celula', default: [] })
   Celula: Types.ObjectId;

@@ -15,13 +15,8 @@ export class FileDto {
   _id: string;
 }
 
-export class CreateTicketDto {
-  @IsMongoId()
-  Cliente: string;
-
-  @IsMongoId()
-  Subcategoria: string;
-
+export class EditTicketDto {
+  
   @IsString()
   Descripcion: string;
 
@@ -32,19 +27,9 @@ export class CreateTicketDto {
   @IsString()
   NumeroRec_Oficio?: string;
 
-  @IsString()
-  Asignado_a: string;
-
-  @IsString()
-  Tiempo: number;
-
   @ValidateNested({ each: true })
   @Type(() => FileDto)
   @IsOptional()
   Files?: FileDto[];
-
-  @IsOptional()
-  @IsString()
-  PendingReason?: string;
 
 }
