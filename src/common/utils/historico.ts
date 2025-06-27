@@ -101,7 +101,9 @@ export const historicoAceptarSolucion = async (user: any, ticketData: any) => {
         {
             Nombre: userId,
             Titulo: "Ticket revisado y aceptado",
-            Mensaje: `${nombre}(${rol}) ha aceptado la solucion de ${ticketData.Nombre} (Resolutor). El estado del ticket es cambiado a "Resuelto" y se encuentra en espera de Cierre.`,
+            Mensaje: `${nombre} (${rol}) ha aceptado la solucion de ${ticketData.Nombre} (Resolutor). El estado del ticket es cambiado a "Resuelto" y se encuentra en espera de Cierre.`
+                .replace(/\.\s*/g, '.<br>'),
+
             Fecha: obtenerFechaActual(),
         },
     ];

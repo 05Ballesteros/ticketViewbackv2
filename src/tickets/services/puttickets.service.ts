@@ -203,10 +203,12 @@ export class PutTicketsService {
                 throw new BadRequestException("Ocurrio un error al modificar el estado del ticket.");
             }
             //2.- Agregar la historia
-            const Historia_ticket = await historicoReasignacion(user, Usuario);
-            // Crear datos para el ticket
-            const { Cliente, ...filteredTicketData } = reasignado; //Se hace para excluir el cliente y que no se guarde como string
+            const { Cliente, Nota, ...filteredTicketData } = reasignado; //Se hace para excluir el cliente y que no se guarde como string
             console.log("filteredTicketData", filteredTicketData);
+            const Historia_ticket = await historicoReasignacion(user, Usuario);
+            const Nota_ticket = await historicoNota(user, reasignado);
+            console.log(" historico y nota", Historia_ticket, Nota_ticket);
+            // Crear datos para el ticket
             const updateData: any = {
                 $set: {
                     ...filteredTicketData,
@@ -215,9 +217,12 @@ export class PutTicketsService {
                     areaReasignado,
                 },
                 $push: {
-                    Historia_ticket: { $each: Historia_ticket },
+                    Historia_ticket: {
+                        $each: [...Historia_ticket, ...Nota_ticket]
+                    }
                 },
             };
+
             // 3.- Obtener Estado para actualizar el ticket
             if (rolReasignado === "Moderador") {
                 updateData.$set.Estado = await this.getticketsService.getEstado("NUEVOS");
@@ -390,6 +395,7 @@ export class PutTicketsService {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
+            console.log("Files en servicios", files);
             // Declarar variables
             let Estado: any | null = null;
             // 1.- Obtener datos necesarios para actualizar el ticket
@@ -454,11 +460,12 @@ export class PutTicketsService {
                 }
             }
             //Se valida a quien se va enviar el correo de asignación
+            console.log("Resuelto");
             return {
                 message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
             };
         } catch (error) {
-            console.error("Error al crear el Ticket:", error.message);
+            console.error("Error al resolver el Ticket:", error.message);
             throw new BadRequestException("Error interno del servidor.");
         }
     };
@@ -901,13 +908,28 @@ export class PutTicketsService {
             const Historia_ticket = await historicoNota(user, ticketData);
             const updateData: any = {
                 $set: { Fecha_hora_ultima_modificacion: obtenerFechaActual() },
-                $push: { Historia_ticket: { $each: Historia_ticket } },
+                $push: {
+                    Historia_ticket: { $each: Historia_ticket },
+                },
             };
+            // Si hay archivos, los subimos y agregamos al mismo updateData
+            if (files.length > 0) {
+                const { data: uploadedFiles } = await guardarArchivos(token, files);
 
+                // Agrega $push.Files al mismo objeto updateData
+                updateData.$push.Files = {
+                    $each: uploadedFiles.map((file) => ({
+                        ...file,
+                        _id: new Types.ObjectId(),
+                    })),
+                };
+            }
+
+            // Ejecutar solo un findByIdAndUpdate
             const updatedTicket = await this.ticketModel.findByIdAndUpdate(
-                { _id: id },
+                id, // ✅ solo el ID
                 updateData,
-                { new: true, upsert: true }
+                { new: true, upsert: false } // ⛔ Evita upsert si el documento debería existir
             );
 
             if (!updatedTicket) {
@@ -917,14 +939,14 @@ export class PutTicketsService {
                 return { message: `No fue posible agregar la Nota.` };
             }
 
-            console.log("ticket", updatedTicket);
-            if (user.Rol === "Usuario") {
+            console.log("ROl", user.rol);
+            if (user.rol === "Usuario") {
                 Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
                 //Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //PM
-            } else if (user.Rol === "Moderador") {
+            } else if (user.rol === "Moderador") {
                 Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
                 //Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a)) ?? ""; //PM
-            } else if (user.Rol === "Auditor") {
+            } else if (user.rol === "Auditor") {
                 Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
                 Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
             } else {
@@ -933,14 +955,20 @@ export class PutTicketsService {
                 //Destinatario3 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //PM
             }
 
-
             const correoData = {
                 Nota: ticketData.Nota,
                 idTicket: updatedTicket.Id,
-                Destinatario1: Destinatario1,
-                Destinatario2: Destinatario2,
-                Destinatario3: Destinatario3,
+                Destinatario1,
+                Destinatario2,
+                Destinatario3,
             };
+
+            if (!Destinatario1 && !Destinatario2 && !Destinatario3) {
+                console.warn("No hay destinatarios válidos para enviar el correo.");
+                await session.abortTransaction();
+                session.endSession();
+                return { message: `Nota agregada correctamente al Ticket ${updatedTicket.Id}.` };
+            }
             console.log("CorreData", correoData);
             const channel = "channel_notas";
             const correo = await this.correoService.enviarCorreo(correoData, channel, token);
@@ -1081,7 +1109,7 @@ export class PutTicketsService {
                 destinatario: cliente.Correo,
                 emails_extra,
             };
-
+            console.log("CorreoData", correoData);
             formData.append('correoData', JSON.stringify(correoData));
 
             if (files.length > 0) {
@@ -1142,7 +1170,7 @@ export class PutTicketsService {
             throw new BadRequestException("Error interno del servidor.");
         }
     };
-    async editarTicket(ticketData: any, user: any, id: string): Promise<{ message: string; }> {
+    async editarTicket(ticketData: any, user: any, id: string, files: any): Promise<{ message: string; }> {
         console.log("DATA", ticketData);
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
@@ -1163,7 +1191,6 @@ export class PutTicketsService {
                 updateData,
                 { new: true, upsert: true }
             );
-            console.log(updatedTicket);
             if (!updatedTicket) {
                 console.log("Transacción abortada.");
                 await session.abortTransaction();
@@ -1178,7 +1205,7 @@ export class PutTicketsService {
             throw new BadRequestException("Error interno del servidor.");
         }
     };
-    async agregarOficio(ticketData: any, user: any, files: any, id: string): Promise<{ message: string; }> {
+    async agregarOficio(ticketData: any, user: any, files: any, id: string, token: string): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
@@ -1187,6 +1214,17 @@ export class PutTicketsService {
                 $set: { Numero_Oficio: ticketData.Numero_Oficio },
                 $push: { Historia_ticket: { $each: Historia_ticket } },
             };
+            if (files.length > 0) {
+                const { data: uploadedFiles } = await guardarArchivos(token, files);
+
+                // Agrega $push.Files al mismo objeto updateData
+                updateData.$push.Files = {
+                    $each: uploadedFiles.map((file) => ({
+                        ...file,
+                        _id: new Types.ObjectId(),
+                    })),
+                };
+            }
 
             const updatedTicket = await this.ticketModel.findByIdAndUpdate(
                 { _id: id },

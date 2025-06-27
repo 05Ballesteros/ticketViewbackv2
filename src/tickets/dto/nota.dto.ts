@@ -27,8 +27,6 @@ export class NotaDto {
   @IsOptional()
   Nota: string;
 
-  @ValidateNested({ each: true })
-  @Type(() => FileDto)
   @IsOptional()
-  Files?: FileDto[];
+  Files?: any
 }

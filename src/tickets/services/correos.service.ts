@@ -39,7 +39,7 @@ export class CorreoService {
     async enviarCorreoHTTP(formData: FormData, endpoint: string, _id: string, token: any) {
     try {
       const response = await axios.post(
-        `http://email-service-nest:8000/api/v1/email/${endpoint}/${_id}`,
+        `http://emails:8000/api/v1/email/${endpoint}/${_id}`,
         formData,
         {
           headers: {

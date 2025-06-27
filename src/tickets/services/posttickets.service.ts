@@ -30,8 +30,10 @@ export class PostTicketsService {
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
     ) { }
-    async crearTicket(dto: any, user: any, token: string, files: any): Promise<{ message: string; }> {
+    async crearTicket(dto: any, user: any, token: string, files: any): Promise<{ message: string;  }> {
         const session: ClientSession = await this.connection.startSession();
+        let committed = false; // ✅ Bandera
+
         session.startTransaction();
         try {
             //1.-Verificar el asignado
@@ -79,7 +81,6 @@ export class PostTicketsService {
                 ...propiedadesRol,
             };
             //6.- Se guarda el ticket
-            console.log("Guardando ticket");
             let ticketInstance = new this.ticketModel(data);
             const savedTicket = await ticketInstance.save({ session });
             console.log("ticket guardado", savedTicket);
@@ -87,18 +88,19 @@ export class PostTicketsService {
             console.log("Ticket guardado correctamente");
             //7.- Se valida si el ticket se guardo correctamente y si hay archivos para guardar
             if (files.length > 0) {
+                console.log("Ticket guardado:", savedTicket._id);
                 const { data: uploadedFiles } = await guardarArchivos(token, files);
-                if (uploadedFiles) { console.log("Archivos guardados correctamente"); }
-                console.log("instancia del tiket", ticketInstance)
-                const updatedTicket = await this.ticketModel.findOneAndUpdate(
-                    { Id: ticketInstance.Id },
-                    { $push: { Files: { $each: uploadedFiles.map((file) => ({ ...file, _id: new Types.ObjectId(), })), }, }, },
-                    { new: true }
+                if (uploadedFiles) { console.log("Se guradaron los archivos"); }
+                const updatedTicket = await this.ticketModel.findByIdAndUpdate(
+                    ticketInstance._id, // ✅ usa solo el ID aquí (puede ser string o ObjectId)
+                    { $push: { Files: { $each: uploadedFiles.map((file) => ({ ...file, _id: new Types.ObjectId() })) } } },
+                    { new: true, upsert: false, session, }
                 );
 
                 if (!updatedTicket) {
                     throw new BadRequestException('No se encontró el ticket para actualizar archivos.');
                 }
+                console.log("Archivos guardados correctamente");
                 ticketInstance = updatedTicket;
             }
             //8.- Se genera el correoData
@@ -126,16 +128,20 @@ export class PostTicketsService {
                 console.log("Mensaje enviado al email service");
             }
             await session.commitTransaction();
-            session.endSession();
+            committed = true; // ✅ Marca que ya se hizo commit
+
             return {
                 message: `Ticket ${savedTicket.Id} creado correctamente.`,
             };
         } catch (error) {
             await this.counterService.decrementSequence('Id');
-            await session.abortTransaction();
-            session.endSession();
+            if (!committed) {
+                await session.abortTransaction(); // ✅ Solo abortar si no se hizo commit
+            }
             console.error("Error al crear el Ticket", error.message);
             throw new BadRequestException("Error interno del servidor.");
+        } finally {
+            session.endSession(); // ✅ Siempre se cierra aquí, una sola vez
         }
     };
 }; 

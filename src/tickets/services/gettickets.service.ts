@@ -209,6 +209,7 @@ export class GetTicketsService {
 
     async getareasAsignacion() {
         try {
+            console.log("Estoy llegando");
             const moderador = await this.rolModel.findOne({ Rol: "Moderador" }).exec();
             const administrador = await this.rolModel.findOne({ Rol: "Administrador" }).exec();
             const AREAS = await this.areaModel.find().exec();

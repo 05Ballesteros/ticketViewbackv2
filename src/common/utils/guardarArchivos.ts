@@ -20,7 +20,6 @@ export const guardarArchivos = async (token: string, files: any) => {
             throw new InternalServerErrorException(`Error al procesar archivo: ${file.originalname}`);
         }
     });
-
     try {
         // Enviar una sola petición con todos los archivos
         const response = await axios.post(
@@ -45,7 +44,6 @@ export const guardarArchivos = async (token: string, files: any) => {
             throw new BadRequestException('Ocurrió un error al guardar los archivos.');
         }
 
-        console.log("Archivos guardados exitosamente.");
         return response;
     } catch (error) {
         console.error('Error al guardar los archivos:', error);
