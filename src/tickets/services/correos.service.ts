@@ -6,7 +6,7 @@ import FormData = require('form-data');
 export class CorreoService {
     async enviarCorreo(correoData: any, channel: string, token: any) {
         try {
-            const url = 'http://email-service-nest:8000/api/v1/redis/publish';
+            const url = 'http://emails:8000/api/v1/redis/publish';
             if (typeof channel !== 'string') {
                 throw new BadRequestException('El canal debe ser una cadena.');
             }
@@ -39,7 +39,7 @@ export class CorreoService {
     async enviarCorreoHTTP(formData: FormData, endpoint: string, _id: string, token: any) {
     try {
       const response = await axios.post(
-        `http://email-service-nest:8000/api/v1/email/${endpoint}/${_id}`,
+        `http://emails:8000/api/v1/email/${endpoint}/${_id}`,
         formData,
         {
           headers: {

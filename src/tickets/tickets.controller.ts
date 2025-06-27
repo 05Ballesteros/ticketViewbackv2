@@ -98,8 +98,9 @@ export class TicketsController {
         @Req() req: any,
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
-        @Body() ticketData: ResolverTicketDto,
+        @Body() ticketData: any,
     ): Promise<{ message: string; }> {
+        console.log('Archivos recibidos:', files);
         const result = await this.putticketsService.resolverTicket(ticketData, req.user, token, files, id);
         return {
             message: result.message,
@@ -214,10 +215,11 @@ export class TicketsController {
     async agregarOficio(
         @Param('id') id: string,
         @Req() req: any,
+        @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: OficioDto,
     ): Promise<{ message: string }> {
-        const result = await this.putticketsService.agregarOficio(ticketData, req.user, files, id);
+        const result = await this.putticketsService.agregarOficio(ticketData, req.user, files, id, token);
         return {
             message: result.message,
         };
@@ -241,9 +243,10 @@ export class TicketsController {
     async editarTicket(
         @Param('id') id: string,
         @Req() req: any,
-        @Body() ticketData,
+        @UploadedFiles() files: Express.Multer.File[],
+        @Body() ticketData : EditTicketDto,
     ): Promise<{ message: string }> {
-        const result = await this.putticketsService.editarTicket(ticketData, req.user, id);
+        const result = await this.putticketsService.editarTicket(ticketData, req.user, id, files);
         return {
             message: result.message,
         };

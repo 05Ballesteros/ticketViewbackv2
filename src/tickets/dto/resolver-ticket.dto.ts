@@ -23,9 +23,6 @@ export class FileDto {
 }
 
 export class ResolverTicketDto {
-  @IsString()
-  @IsOptional()
-  Nota: string;
 
   @IsString()
   Respuesta_cierre_reasignado: string;
@@ -38,5 +35,5 @@ export class ResolverTicketDto {
   @ValidateNested({ each: true })
   @Type(() => FileDto)
   @IsOptional()
-  Files?: FileDto[];
+  Files?: any;
 }

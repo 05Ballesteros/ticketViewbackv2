@@ -19,6 +19,6 @@ async function bootstrap() {
       transform: true        // convierte payloads a instancias de clases
     }),
   );
-  await app.listen(process.env.PORT ?? 4201);
+  await app.listen(process.env.PORT ?? 4200);
 }
 bootstrap();
