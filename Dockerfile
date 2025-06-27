@@ -18,5 +18,5 @@ RUN npm config set registry https://registry.npmmirror.com && npm install --only
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/*.json .
 
-EXPOSE 4201
+EXPOSE 4200
 CMD ["node", "dist/main"]

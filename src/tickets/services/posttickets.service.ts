@@ -30,7 +30,7 @@ export class PostTicketsService {
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
     ) { }
-    async crearTicket(dto: any, user: any, token: string, files: any): Promise<{ message: string;}> {
+    async crearTicket(dto: any, user: any, token: string, files: any): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
@@ -82,16 +82,18 @@ export class PostTicketsService {
             console.log("Guardando ticket");
             let ticketInstance = new this.ticketModel(data);
             const savedTicket = await ticketInstance.save({ session });
+            console.log("ticket guardado", savedTicket);
             if (!savedTicket) { throw new BadRequestException('No se creó el ticket.'); }
             console.log("Ticket guardado correctamente");
             //7.- Se valida si el ticket se guardo correctamente y si hay archivos para guardar
             if (files.length > 0) {
                 const { data: uploadedFiles } = await guardarArchivos(token, files);
                 if (uploadedFiles) { console.log("Archivos guardados correctamente"); }
-                const updatedTicket = await this.ticketModel.findByIdAndUpdate(
-                    { _id: ticketInstance._id },
+                console.log("instancia del tiket", ticketInstance)
+                const updatedTicket = await this.ticketModel.findOneAndUpdate(
+                    { Id: ticketInstance.Id },
                     { $push: { Files: { $each: uploadedFiles.map((file) => ({ ...file, _id: new Types.ObjectId(), })), }, }, },
-                    { new: true, upsert: true }
+                    { new: true }
                 );
 
                 if (!updatedTicket) {
@@ -126,7 +128,7 @@ export class PostTicketsService {
             await session.commitTransaction();
             session.endSession();
             return {
-                message:`Ticket ${savedTicket.Id} creado correctamente.`,
+                message: `Ticket ${savedTicket.Id} creado correctamente.`,
             };
         } catch (error) {
             await this.counterService.decrementSequence('Id');

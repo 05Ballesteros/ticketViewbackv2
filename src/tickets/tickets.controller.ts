@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Param, Post, Put, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, HttpStatus, Param, Post, Put, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors, NotFoundException } from '@nestjs/common';
 import { GetTicketsService } from './services/gettickets.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { PostTicketsService } from './services/posttickets.service';
@@ -25,6 +25,7 @@ import { NotaDto } from './dto/nota.dto';
 import { PendingReasonDto } from './dto/pendingReason.dto';
 import { OficioDto } from './dto/oficio.dto';
 import { EditTicketDto } from './dto/edit-ticket.dto';
+import { Types, } from 'mongoose';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard)
@@ -253,55 +254,49 @@ export class TicketsController {
     async getMedios() {
         return await this.getticketsService.getMedios();
     };
-    
-    @Get('/:id')
-    getTicket(
-        @Param('id') id: string) {
-        return this.getticketsService.getTicket(id);
-    };
 
     @Get('estado/:estado')
     getTickets(
         @Param('estado') estado: string,
         @Req() req: any,) {
-            const user = req.user;
-            return this.getticketsService.getTickets(estado, user);
-        };
-        
-        @Get('reabrir/fields')
-        getreabrirFields() {
-            return this.getticketsService.getReabrirFields();
-        };
-        
-        @Get('asignar/areas')
-        getareasAsignacion() {
-            return this.getticketsService.getareasAsignacion();
-        };
-        
-        @Get('reasignar/areas')
-        getareasResignacion(@Req() req: any) {
-            const user = req.user;
-            return this.getticketsService.getareasReasignacion(user);
-        };
-        
-        @Get('crear/getInfoSelects')
-        getInfoSelects() { return this.getticketsService.getInfoSelects(); };
-        
-        @Get('historico')
-        getAreas() { return this.getticketsService.getAreas(); };
-        
-        @Get('historico/area')
-        getTicketsPorArea(@Query('area') area: string) {
-            try {
-                return this.getticketsService.getTicketsPorArea(area);
-            } catch (error) {
-                throw new HttpException(
-                    { message: 'Error interno al obtener los tickets.', details: error.message },
+        const user = req.user;
+        return this.getticketsService.getTickets(estado, user);
+    };
+
+    @Get('reabrir/fields')
+    getreabrirFields() {
+        return this.getticketsService.getReabrirFields();
+    };
+
+    @Get('asignar/areas')
+    getareasAsignacion() {
+        return this.getticketsService.getareasAsignacion();
+    };
+
+    @Get('reasignar/areas')
+    getareasResignacion(@Req() req: any) {
+        const user = req.user;
+        return this.getticketsService.getareasReasignacion(user);
+    };
+
+    @Get('crear/getInfoSelects')
+    getInfoSelects() { return this.getticketsService.getInfoSelects(); };
+
+    @Get('areas')
+    getAreas() { return this.getticketsService.getAreas(); };
+
+    @Get('historico/area')
+    getTicketsPorArea(@Query('area') area: string) {
+        try {
+            return this.getticketsService.getTicketsPorArea(area);
+        } catch (error) {
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: error.message },
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     };
-    
+
     @Get('resolutor/:id')
     async getTicketsResolutor(@Param('id') userid: string) {
         try {
@@ -312,7 +307,7 @@ export class TicketsController {
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
-        
+
     };
 
     @Get('export/excel')
@@ -332,7 +327,7 @@ export class TicketsController {
             );
         }
     };
-    
+
     @Get('clientes/dependencias')
     getDependenciasCLientes() {
         try {
@@ -344,7 +339,7 @@ export class TicketsController {
             );
         }
     };
-    
+
     @Get('correos/:id')
     getCorreos(@Param('id') id: string) {
         try {
@@ -356,7 +351,7 @@ export class TicketsController {
             );
         }
     };
-    
+
     @Get('buscar/:id')
     async getTicketsPorId(@Param('id') id: string) {
         try {
@@ -368,7 +363,7 @@ export class TicketsController {
             );
         }
     };
-    
+
     @Get('calendario')
     async getCalendario(@Req() req: any) {
         try {
@@ -381,7 +376,7 @@ export class TicketsController {
             );
         }
     };
-    
+
     @Get('perfil')
     async getPerfil(@Req() req: any) {
         try {
@@ -394,7 +389,7 @@ export class TicketsController {
             );
         }
     };
-    
+
     @Put('/pendiente/:id')
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async marcarTicketPendiente(
@@ -417,14 +412,14 @@ export class TicketsController {
             );
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-            
+
             throw new HttpException(
                 { message: 'Error interno al obtener los tickets.', details: errorMessage },
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     }
-    
+
     @Put('/contactoCliente/:id')
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async contactarCliente(
@@ -447,12 +442,140 @@ export class TicketsController {
             );
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-            
+
             throw new HttpException(
                 { message: 'Error interno al obtener los tickets.', details: errorMessage },
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     }
-    
+
+    @Get('/ncresolutor')
+    async getBusquedaAvanzadaNcResolutor(@Query('termino') paramResolutor: string) {
+        try {
+            return this.getticketsService.busquedaAvanzadaPorResolutor(paramResolutor);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: errorMessage },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('/nccliente')
+    async getBusquedaAvanzadaNcCliente(@Query('termino') paramCliente: string) {
+        try {
+            return this.getticketsService.busquedaAvanzadaPorCliente(paramCliente);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: errorMessage },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('/oficio')
+    async getBusquedaAvanzadaOficio(@Query('termino') nombreOficio: string) {
+        try {
+            return this.getticketsService.getBusquedaAvanzadaOficio(nombreOficio);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: errorMessage },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('/id')
+    async getBusquedaAvanzadaId(@Query('termino') id: string) {
+        try {
+            return this.getticketsService.getBusquedaAvanzadaId(id);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: errorMessage },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('/general')
+    async busquedaGeneral(@Query('termino') termino: string) {
+        try {
+            const resultado: Ticket[] = [];
+
+            try {
+                const resOficio = await this.getticketsService.getBusquedaAvanzadaOficio(termino);
+                resultado.push(...resOficio);
+            } catch (error) {
+                console.error('Error en búsqueda por oficio:', error);
+            }
+
+            try {
+                const resCliente = await this.getticketsService.busquedaAvanzadaPorCliente(termino);
+                resultado.push(...resCliente);
+            } catch (error) {
+                console.error('Error en búsqueda por cliente:', error);
+            }
+
+            try {
+                const resResolutor = await this.getticketsService.busquedaAvanzadaPorResolutor(termino);
+                resultado.push(...resResolutor);
+            } catch (error) {
+                console.error('Error en búsqueda por resolutor:', error);
+            }
+
+            try {
+                const resId = await this.getticketsService.getBusquedaAvanzadaId(termino);
+                resultado.push(...resId);
+            } catch (error) {
+                console.error('Error en búsqueda por ID:', error);
+            }
+
+            // Eliminar duplicados por _id (suponiendo que tus objetos tienen este campo)
+            const resultadoUnico: Ticket[] = Array.from(
+                new Map(resultado.map((item) => [(item._id as Types.ObjectId).toString(), item])).values(),
+            );
+
+            if (resultadoUnico.length > 0) {
+                return resultadoUnico;
+            }
+
+            throw new NotFoundException('No se encontraron tickets para este término de búsqueda');
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: errorMessage },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('/area')
+    async getBusquedaAvanzadaArea(@Query('termino') area: string) {
+        try {
+            return this.getticketsService.getBusquedaAvanzadaArea(area);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: errorMessage },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('/:id')
+    getTicket(
+        @Param('id') id: string) {
+        return this.getticketsService.getTicket(id);
+    };
+
 };

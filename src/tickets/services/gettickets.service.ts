@@ -26,6 +26,40 @@ import { Medio } from 'src/schemas/mediocontacto.schema';
 import { Categorizacion } from 'src/schemas/categorizacion.schema';
 import { sub } from 'date-fns';
 import { th } from 'date-fns/locale';
+
+interface Cliente {
+    _id: Types.ObjectId;
+    Nombre: string;
+    Correo: string;
+    Dependencia: Types.ObjectId;
+    Direccion_General: Types.ObjectId;
+    direccion_area: Types.ObjectId;
+    Telefono: string;
+    Extension?: string;
+    Ubicacion?: string;
+}
+
+interface UsuarioI {
+    _id: Types.ObjectId;
+    Nombre: string;
+    Correo: string;
+    isActive: boolean;
+    Area: string[];
+    Rol: string;
+    Dependencia: Types.ObjectId;
+    Direccion_General: Types.ObjectId;
+    Direccion: {
+        Pais: string;
+        Ciudad: string;
+        codigoPostal: string;
+    };
+    Telefono: string;
+    Extension?: string;
+    Puesto: string;
+    Ubicacion?: string;
+}
+
+
 @Injectable()
 export class GetTicketsService {
     constructor(
@@ -99,21 +133,25 @@ export class GetTicketsService {
 
     async getTicket(id: string): Promise<Ticket[] | null> {
         try {
-            const result = await this.ticketModel.find({ Id: id });
+            const result = await this.ticketModel.findOne({ Id: id });
 
             if (!result) {
-                throw new NotFoundException("No se encontro el ticket")
+                throw new NotFoundException("No se encontró el ticket");
             }
 
-
-            const populatedTickets = await populateTickets(result);
+            const populatedTickets = await populateTickets([result]);
             const formattedTickets = populatedTickets.map(formatDates);
             return formattedTickets;
-
         } catch (error) {
-            throw new BadRequestException()
+            if (error instanceof HttpException) {
+                throw error;
+            }
+
+            console.error("Error inesperado:", error);
+            throw new InternalServerErrorException("Ocurrió un error al buscar el ticket");
         }
     }
+
 
     async getMedios() {
         try {
@@ -234,14 +272,19 @@ export class GetTicketsService {
 
     async getAreas() {
         try {
-            const AREAS = await this.areaModel.find().exec();
-            if (!AREAS) {
-                throw new Error("No se encontrarom areas.");
+            const areas = await this.areaModel.find().sort({ Area: 1 }).exec();
+            if (!areas) {
+                throw new NotFoundException("No se encontraron areas");
             }
-            return { AREAS, tickets: [] };
+
+            const groupedAreas = areas.map((a) => ({
+                label: a.Area,
+                value: a._id,
+            }));
+
+            return { areas: groupedAreas };
 
         } catch (error) {
-            console.error("Error al obtener los campos de reabrir:", error.message);
             throw new Error("Error interno del servidor.");
         }
     };
@@ -641,5 +684,163 @@ export class GetTicketsService {
         } catch (error) {
             throw new NotFoundException('No se encontró el estado.');
         }
+    }
+
+    async busquedaAvanzadaPorResolutor(termino: string): Promise<Ticket[]> {
+        try {
+            // 1. Buscar usuarios que coincidan
+            const usuarios = await this.usuarioModel.find({
+                $or: [
+                    { Nombre: { $regex: termino, $options: 'i' } },
+                    { Correo: { $regex: termino, $options: 'i' } },
+                ],
+            });
+
+            if (usuarios.length === 0) {
+                throw new NotFoundException('No se encontró ningún resolutor con ese término.');
+            }
+
+            const ids = (usuarios as unknown as UsuarioI[]).map((u) => new Types.ObjectId(u._id));
+
+            // 2. Construir condiciones para campos posibles
+            const orConditions = ['Asignado_a', 'Reasignado_a', 'Resuelto_por', 'Creado_por'].map(
+                (field) => ({ [field]: { $in: ids } }),
+            );
+
+            // 3. Buscar tickets relacionados
+            const tickets = await this.ticketModel.find({ $or: orConditions });
+
+            if (!tickets || tickets.length === 0) {
+                throw new NotFoundException('No se encontraron tickets con ese término.');
+            }
+
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Error interno al buscar tickets por resolutor.');
+        }
+    }
+
+    async busquedaAvanzadaPorCliente(termino: string): Promise<Ticket[]> {
+        try {
+            // 1. Buscar clientes por nombre o correo
+            const clientes = await this.clienteModel.find({
+                $or: [
+                    { Nombre: { $regex: termino, $options: 'i' } },
+                    { Correo: { $regex: termino, $options: 'i' } },
+                ],
+            });
+
+            if (clientes.length === 0) {
+                throw new NotFoundException('No se encontró ningún cliente con ese término.');
+            }
+
+            const clienteIds = (clientes as Cliente[]).map((c) => new Types.ObjectId(c._id));
+
+            // 2. Buscar tickets relacionados al cliente
+            const tickets = await this.ticketModel.find({
+                Cliente: { $in: clienteIds },
+            });
+
+            if (!tickets || tickets.length === 0) {
+                throw new NotFoundException('No se encontraron tickets con ese término.');
+            }
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Error interno al buscar tickets por cliente.');
+        }
+    }
+
+    async getBusquedaAvanzadaId(id: string) {
+        try {
+            const tickets = await this.ticketModel.find({ Id: id }).exec();
+            if (!tickets.length) {
+                throw new NotFoundException('No se encontro el Ticket.');
+            }
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Error interno al buscar ticket por ID.');
+        }
+    }
+
+    async getBusquedaAvanzadaOficio(nombreOficio: string) {
+        try {
+            const tickets = await this.ticketModel
+                .find({
+                    $or: [{ NumeroRec_Oficio: nombreOficio }, { Numero_Oficio: nombreOficio }],
+                })
+                .exec();
+            if (!tickets.length) {
+                throw new Error('No se encontro el Ticket.');
+            }
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException(
+                'Error interno al buscar ticket por numero de oficio.',
+            );
+        }
+    }
+
+    async getBusquedaAvanzadaArea(Area: string) {
+        try {
+            const tickets = await this.ticketModel.find({ Area: new Types.ObjectId(Area) }).exec();
+            console.log("Estos son los tickets");
+            if (!tickets.length) {
+                throw new NotFoundException('No se encontraron tickets en esta area.');
+            }
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Error interno al buscar ticket por ID.');
+        }
+    }
+
+    async getBusquedaAvanzadaGeneral(termino: string) {
+        try {
+            const tickets = await this.ticketModel.find({
+                $or: [
+                    { $or: [{ NumeroRec_Oficio: { $regex: termino, $options: "i" } }, { Numero_Oficio: { $regex: termino, $options: "i" } }] },
+                    { $or: [{ Nombre: { $regex: termino, $options: 'i' } }, { Correo: { $regex: termino, $options: 'i' } }] },
+                    { Descripcion: { $regex: termino, $options: "i" } },
+                    //{ Id: termino },
+                ]
+            }).exec();
+            if (!tickets.length) {
+                throw new Error('No se encontro el Ticket.');
+            }
+            const populatedTickets = await populateTickets(tickets);
+            const formattedTickets = populatedTickets.map(formatDates);
+            return formattedTickets;
+        } catch (error) {
+            console.log(error);
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Error interno al buscar ticket por ID.');
+        }
+
     }
 };

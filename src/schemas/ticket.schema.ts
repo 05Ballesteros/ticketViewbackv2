@@ -4,7 +4,7 @@ import mongoose, { Types, Document } from 'mongoose';
 import { HistoryItem, HistoryItemSchema } from './history-item.schema';
 
 @Schema({ collection: 'Tickets' }) // Nombre correcto de la colección
-export class Ticket {
+export class Ticket extends Document {
   @Prop({ type: Types.ObjectId, ref: 'Clientes', required: true })
   Cliente: Types.ObjectId;
 

@@ -24,7 +24,7 @@ export const guardarArchivos = async (token: string, files: any) => {
     try {
         // Enviar una sola petición con todos los archivos
         const response = await axios.post(
-            "http://files-service-nest:4401/api/v1/files",
+            "http://archivos:4400/api/v1/files",
             formData,
             {
                 headers: {
@@ -34,6 +34,8 @@ export const guardarArchivos = async (token: string, files: any) => {
                 withCredentials: false,
             }
         );
+
+        console.log("Esta es la respuesta del servicio de archivos", response.data)
 
         // Eliminar los archivos temporales después de enviarlos
         files.forEach((file) => fs.unlinkSync(file.path));

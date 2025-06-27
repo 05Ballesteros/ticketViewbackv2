@@ -6,7 +6,7 @@ import FormData = require('form-data');
 export class CorreoService {
     async enviarCorreo(correoData: any, channel: string, token: any) {
         try {
-            const url = 'http://email-service-nest:8000/api/v1/redis/publish';
+            const url = 'http://emails:8000/api/v1/redis/publish';
             if (typeof channel !== 'string') {
                 throw new BadRequestException('El canal debe ser una cadena.');
             }
