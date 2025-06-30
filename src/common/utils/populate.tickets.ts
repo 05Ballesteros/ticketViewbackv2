@@ -5,13 +5,13 @@ export async function populateTickets(tickets: any[]): Promise<any[]> {
       tickets.map(async (ticket) => {
         return await ticket.populate([
           {
-            path: 'Asignado_a Reasignado_a Creado_por',
+            path: 'Asignado_a Reasignado_a Creado_por Resuelto_por',
             populate: [{ path: 'Dependencia' }, { path: 'Direccion_General' }, { path: 'Area' }],
           },
           { path: 'Area', select: 'Area' },
           { path: 'Estado', select: 'Estado' },
           { path: 'Medio', select: 'Medio' },
-          { path: 'Subcategoria' },
+          { path: 'Subcategoria', populate: [{ path: "Equipo" }] },
           {
             path: 'Cliente',
             populate: [

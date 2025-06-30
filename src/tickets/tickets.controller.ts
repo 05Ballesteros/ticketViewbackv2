@@ -245,9 +245,10 @@ export class TicketsController {
         @Param('id') id: string,
         @Req() req: any,
         @UploadedFiles() files: Express.Multer.File[],
-        @Body() ticketData : EditTicketDto,
+        @Body() ticketData: EditTicketDto,
+        @Token() token: string,
     ): Promise<{ message: string }> {
-        const result = await this.putticketsService.editarTicket(ticketData, req.user, id, files);
+        const result = await this.putticketsService.editarTicket(ticketData, req.user, id, files, token);
         return {
             message: result.message,
         };

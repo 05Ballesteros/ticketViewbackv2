@@ -395,7 +395,6 @@ export class PutTicketsService {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
-            console.log("Files en servicios", files);
             // Declarar variables
             let Estado: any | null = null;
             // 1.- Obtener datos necesarios para actualizar el ticket
@@ -430,7 +429,7 @@ export class PutTicketsService {
             const updatedTicket = await this.ticketModel.findByIdAndUpdate(
                 { _id: id },
                 updateData,
-                { new: true, upsert: true }
+                { new: true }
             );
             if (!updatedTicket) {
                 console.log("Transacción abortada.");
@@ -460,7 +459,6 @@ export class PutTicketsService {
                 }
             }
             //Se valida a quien se va enviar el correo de asignación
-            console.log("Resuelto");
             return {
                 message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
             };
@@ -1170,12 +1168,10 @@ export class PutTicketsService {
             throw new BadRequestException("Error interno del servidor.");
         }
     };
-    async editarTicket(ticketData: any, user: any, id: string, files: any): Promise<{ message: string; }> {
-        console.log("DATA", ticketData);
+    async editarTicket(ticketData: any, user: any, id: string, files: any, token: string): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
-            console.log("ticketData", ticketData);
             const Historia_ticket = await historicoEditar(user);
             const updateData: any = {
                 $set: {
@@ -1196,9 +1192,31 @@ export class PutTicketsService {
                 await session.abortTransaction();
                 session.endSession();
                 return { message: `No fue posible editar el ticket.` };
-            } else {
-                return { message: `Ticket ${updatedTicket.Id} editado correctamente.` };
             }
+
+            if (files.length > 0) {
+                const { data: uploadedFiles } = await guardarArchivos(token, files);
+                const updatedTicket = await this.ticketModel.findByIdAndUpdate(
+                    { _id: id },
+                    {
+                        $push: {
+                            Files: uploadedFiles.map((file) => ({
+                                ...file,
+                                _id: new Types.ObjectId(),
+                            })),
+                        },
+                    },
+                    { new: true, upsert: true }
+                );
+
+                if (!updatedTicket) {
+                    throw new BadRequestException("No se encontró el ticket para actualizar archivos.");
+                }
+            }
+
+            return {
+                message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
+            };
 
         } catch (error) {
             console.error("Error al crear el Ticket:", error.message);
