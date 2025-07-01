@@ -136,12 +136,12 @@ export class PutTicketsService {
             console.log("Usuario", Usuario);
             //7.- Enviar correos
             let correoData = {
-                idTicket: updatedTicket.Id,
-                correoUsuario: Usuario?.Correo,
-                extensionCliente: cliente?.Extension,
-                descripcionTicket: updatedTicket.Descripcion,
-                nombreCliente: cliente?.Nombre,
-                telefonoCliente: cliente?.Telefono,
+                Id: updatedTicket.Id,
+                destinatario: Usuario?.Correo,
+                details: updatedTicket.Descripcion,
+                nombre: cliente?.Nombre,
+                extension: cliente?.Extension,
+                telefono: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
             };
@@ -263,12 +263,12 @@ export class PutTicketsService {
             const cliente = await this.clienteService.getCliente(updatedTicket?.Cliente);
             //7.- Enviar correos
             let correoData = {
-                idTicket: updatedTicket.Id,
-                correoUsuario: Usuario?.Correo,
-                extensionCliente: cliente?.Extension,
-                descripcionTicket: updatedTicket.Descripcion,
-                nombreCliente: cliente?.Nombre,
-                telefonoCliente: cliente?.Telefono,
+                Id: updatedTicket.Id,
+                destinatario: Usuario?.Correo,
+                extension: cliente?.Extension,
+                details: updatedTicket.Descripcion,
+                nombre: cliente?.Nombre,
+                telefono: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
             };
@@ -369,13 +369,13 @@ export class PutTicketsService {
             const cliente = await this.clienteService.getCliente(updatedTicket.Cliente);
             //7.- Enviar correos
             let correoData = {
-                idTicket: updatedTicket.Id,
-                correoUsuario: Usuario?.Correo,
-                correoCliente: cliente?.Correo,
-                extensionCliente: cliente?.Extension,
-                descripcionTicket: updatedTicket.Descripcion,
-                nombreCliente: cliente?.Nombre,
-                telefonoCliente: cliente?.Telefono,
+                Id: updatedTicket.Id,
+                destinatario: cliente?.Correo,
+                emails_extra: Usuario?.Correo,
+                details: updatedTicket.Descripcion,
+                nombre: cliente?.Nombre,
+                extension: cliente?.Extension,
+                telefono: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
             };
@@ -658,6 +658,15 @@ export class PutTicketsService {
                     throw new BadRequestException("No se encontró el ticket para actualizar archivos.");
                 }
             }
+            let correoData = {
+                Id: updatedTicket.Id,
+                details: ticketData.descripcion_retorno,
+            };
+            const channel = "channel_regresarTicketMesa";
+            const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+            if (correo) {
+                console.log("Mensaje enviado al email service: channel_regresarTicketMesa");
+            }
             return {
                 message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
             };
@@ -726,7 +735,16 @@ export class PutTicketsService {
                     throw new BadRequestException("No se encontró el ticket para actualizar archivos.");
                 }
             }
-            //Se valida a quien se va enviar el correo de asignación
+            let correoData = {
+                Id: updatedTicket.Id,
+                destinatario: (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])), //Moderador
+                details: ticketData.descripcion_retorno,
+            };
+            const channel = "channel_regresarTicketModerador";
+            const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+            if (correo) {
+                console.log("Mensaje enviado al email service: channel_regresarTicketModerador");
+            }
             return {
                 message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
             };
@@ -792,9 +810,9 @@ export class PutTicketsService {
             const Usuario = await this.userService.getUsuario(updatedTicket.Reasignado_a[0]._id.toString());
             //7.- Enviar correos
             const correoData = {
-                idTicket: updatedTicket.Id,
-                correoResolutor: Usuario?.Correo,
-                Descripcion_respuesta_cliente: ticketData.Descripcion_respuesta_cliente,
+                Id: updatedTicket.Id,
+                destinatario: Usuario?.Correo,
+                details: ticketData.Descripcion_respuesta_cliente,
             };
 
             console.log("Correo data", correoData);
@@ -869,9 +887,9 @@ export class PutTicketsService {
             const formData = new FormData();
 
             const correoData = {
-                details: ticketData.Descripcion_cierre,
-                idTicket: updatedTicket.Id,
+                Id: updatedTicket.Id,
                 destinatario: cliente.Correo,
+                details: ticketData.Descripcion_cierre,
             };
 
             formData.append('correoData', JSON.stringify(correoData));
@@ -901,9 +919,8 @@ export class PutTicketsService {
     async agregarNota(ticketData: any, user: any, files: any, id: string, token: string): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
-        let Destinatario1 = "";
-        let Destinatario2 = "";
-        let Destinatario3 = "";
+        let destinatario = "";
+        let emails_extra: string[] = [];
         try {
             const Historia_ticket = await historicoNota(user, ticketData);
             const updateData: any = {
@@ -939,31 +956,41 @@ export class PutTicketsService {
                 return { message: `No fue posible agregar la Nota.` };
             }
 
-            console.log("ROl", user.rol);
             if (user.rol === "Usuario") {
-                Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
-                //Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //PM
+                destinatario = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
+                //const PM = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //PM 
+                // if (PM) {
+                //     emails_extra.push(PM);
+                // }
             } else if (user.rol === "Moderador") {
-                Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
-                //Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a)) ?? ""; //PM
+                destinatario = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
+                //const PM = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //PM 
+                // if (PM) {
+                //     emails_extra.push(PM);
+                // }
             } else if (user.rol === "Auditor") {
-                Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
-                Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
+                destinatario = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
+                const Resolutor = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //Resolutor
+                if (Resolutor) {
+                    emails_extra.push(Resolutor);
+                }
             } else {
-                Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
-                Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
-                //Destinatario3 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //PM
+                destinatario = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
+                const Resolutor = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //Resolutor
+                //const PM = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //PM 
+                if (Resolutor) {
+                    emails_extra.push(Resolutor);
+                }
             }
 
             const correoData = {
-                Nota: ticketData.Nota,
-                idTicket: updatedTicket.Id,
-                Destinatario1,
-                Destinatario2,
-                Destinatario3,
+                Id: updatedTicket.Id,
+                destinatario,
+                emails_extra,
+                details: ticketData.Nota,
             };
 
-            if (!Destinatario1 && !Destinatario2 && !Destinatario3) {
+            if (!destinatario && emails_extra.length < 1) {
                 console.warn("No hay destinatarios válidos para enviar el correo.");
                 await session.abortTransaction();
                 session.endSession();
@@ -1033,10 +1060,10 @@ export class PutTicketsService {
             const formData = new FormData();
 
             const correoData = {
-                details: cuerpoCorreo,
-                idTicket: result.Id,
+                Id: result.Id,
                 destinatario: cliente.Correo,
                 emails_extra,
+                details: cuerpoCorreo,
             };
 
             formData.append('correoData', JSON.stringify(correoData));
@@ -1104,10 +1131,10 @@ export class PutTicketsService {
             const formData = new FormData();
 
             const correoData = {
-                details: cuerpoCorreo,
-                idTicket: result.Id,
+                Id: result.Id,
                 destinatario: cliente.Correo,
                 emails_extra,
+                details: cuerpoCorreo,
             };
             console.log("CorreoData", correoData);
             formData.append('correoData', JSON.stringify(correoData));

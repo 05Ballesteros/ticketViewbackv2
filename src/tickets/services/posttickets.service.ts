@@ -111,13 +111,13 @@ export class PostTicketsService {
                 ).toString()
             );
             let correoData = {
-                idTicket: savedTicket.Id,
-                correoUsuario: Usuario?.Correo,
-                correoCliente: cliente?.Correo,
-                extensionCliente: cliente?.Extension,
-                descripcionTicket: savedTicket.Descripcion,
-                nombreCliente: cliente?.Nombre,
-                telefonoCliente: cliente?.Telefono,
+                Id: savedTicket.Id,
+                destinatario: cliente?.Correo,
+                emails_extra: Usuario?.Correo,
+                details: savedTicket.Descripcion,
+                nombre: cliente?.Nombre,
+                extension: cliente?.Extension,
+                telefono: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
             };
