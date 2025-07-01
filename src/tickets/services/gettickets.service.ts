@@ -341,41 +341,17 @@ export class GetTicketsService {
             // 1️⃣ Obtener los tickets con populate
             const tickets = await this.ticketModel
                 .find()
-                .populate([
-                    {
-                        path: 'Subcategoria',
-                        populate: [{ path: 'Equipo', select: 'Area _id' }],
-                    },
-                    { path: 'Estado' },
-                    {
-                        path: 'Asignado_a',
-                        select: 'Nombre Correo _id',
-                        populate: [{ path: 'Area', select: 'Area _id' }],
-                    },
-                    {
-                        path: 'Reasignado_a',
-                        select: 'Nombre Correo _id',
-                        populate: [{ path: 'Area', select: 'Area _id' }],
-                    },
-                    {
-                        path: 'Resuelto_por',
-                        select: 'Nombre Correo _id',
-                        populate: [{ path: 'Area', select: 'Area _id' }],
-                    },
-                    {
-                        path: 'Cliente',
-                        select: 'Nombre Correo Telefono Ubicacion _id',
-                        populate: [
-                            { path: 'Direccion_General', select: 'Direccion_General _id' },
-                            { path: 'direccion_area', select: 'direccion_area _id' },
-                        ],
-                    },
-                ])
                 .exec();
-            console.log(tickets);
 
             if (!tickets.length) {
                 throw new HttpException('No hay tickets disponibles.', HttpStatus.NOT_FOUND);
+            }
+
+            const ticketsPopulated = await populateTickets(tickets);
+
+
+            if (!ticketsPopulated) {
+                throw new HttpException('Ocurrio un error al formatear la informacion de los tickets.', HttpStatus.NOT_FOUND);
             }
 
             // 2️⃣ Crear un nuevo libro de Excel
@@ -386,6 +362,7 @@ export class GetTicketsService {
             worksheet.columns = [
                 { header: 'ID', key: 'Id', width: 25 },
                 { header: 'Fecha Creacion', key: 'Fecha_creacion', width: 25 },
+                { header: 'Fecha Resolucion', key: 'Fecha_hora_resolucion', width: 25 },
                 { header: 'Fecha Cierre', key: 'Fecha_hora_cierre', width: 25 },
                 { header: "Oficio recepcion", key: "NumeroRec_Oficio", width: 25 },
                 { header: "Oficio cierre", key: "Numero_Oficio", width: 25 },
@@ -393,7 +370,7 @@ export class GetTicketsService {
                 { header: "Area", key: "Area", width: 25 },
                 { header: "Tipo incidencia", key: "Tipo_incidencia", width: 25 },
                 { header: "Servicio", key: "Servicio", width: 25 },
-                { header: "Categoría", key: "Categoria", width: 25 },
+                { header: "Categoria", key: "Categoria", width: 25 },
                 { header: "Subcategoría", key: "Subcategoria", width: 25 },
                 { header: "Descripcion", key: "Descripcion", width: 25 },
                 { header: "Prioridad", key: "Prioridad", width: 25 },
@@ -414,9 +391,9 @@ export class GetTicketsService {
                 { header: "Cliente", key: "Cliente", width: 25 },
                 { header: "Correo cliente", key: "Correo_cliente", width: 25 },
                 { header: "Telefono cliente", key: "Telefono_cliente", width: 25 },
-                //{ header: "Extension cliente", key: "Extension_cliente", width: 25 },
+                { header: "Extension cliente", key: "Extension_cliente", width: 25 },
                 { header: "Ubicacion cliente", key: "Ubicacion_cliente", width: 25 },
-                //{ header: "Dependencia cliente", key: "Dependencia_cliente", width: 25 },
+                { header: "Dependencia cliente", key: "Dependencia_cliente", width: 25 },
                 {
                     header: "Direccion general cliente",
                     key: "DireccionG_cliente",
@@ -430,49 +407,50 @@ export class GetTicketsService {
             ];
 
             // 4️⃣ Agregar datos a las filas
-            tickets.forEach((ticket) => {
+            ticketsPopulated.forEach((ticket) => {
                 worksheet.addRow({
                     Id: ticket.Id || "",
                     Fecha_creacion: ticket.Fecha_hora_creacion || "",
+                    Fecha_hora_resolucion: ticket.Fecha_hora_resolucion || "",
                     Fecha_hora_cierre: ticket.Fecha_hora_cierre || "",
                     NumeroRec_Oficio: ticket.NumeroRec_Oficio || "",
                     Numero_Oficio: ticket.Numero_Oficio || "",
-                    Estado: ticket.Estado || "",
-                    //Area: ticket.Subcategoria?.Equipo.Area || "",
-                    //Tipo_incidencia: ticket.Subcategoria?.Tipo || "",
-                    //Servicio: ticket.Subcategoria?.Servicio || "",
-                    //Categoria: categoria,
-                    //Subcategoria: ticket.Subcategoria?.Subcategoria || "",
+                    Estado: ticket?.Estado?.Estado || "",
+                    Area: ticket.Subcategoria?.Equipo.Area || "",
+                    Tipo_incidencia: ticket.Subcategoria?.Tipo || "",
+                    Servicio: ticket.Subcategoria?.Servicio || "",
+                    Categoria: ticket.Subcategoria?.["Categoría"] || "",
+                    Subcategoria: ticket.Subcategoria?.Subcategoria || "",
                     Descripcion: ticket.Descripcion || "",
-                    //Prioridad: ticket.Subcategoria?.Descripcion_prioridad || "",
+                    Prioridad: ticket.Subcategoria?.Descripcion_prioridad || "",
                     Fecha_lim_res: ticket.Fecha_limite_resolucion_SLA || "",
-                    //Creado_por: ticket.Creado_por?.Nombre || "",
-                    //Area_creado_por: Array.isArray(ticket.Creado_por?.Area)
-                    // ? ticket.Creado_por.Area[0]?.Area
-                    // : "",
-                    //Asignado_a: ticket.Asignado_a?.Nombre || "",
-                    //Area_asignado: Array.isArray(ticket.Asignado_a?.Area)
-                    //  ? ticket.Asignado_a?.Area[0]?.Area
-                    //: "",
-                    // Reasignado_a: ticket.Reasignado_a?.Nombre || "",
-                    // Area_reasignado_a: Array.isArray(ticket.Reasignado_a?.Area)
-                    //     ? ticket.Reasignado_a?.Area[0]?.Area
-                    //     : "",
-                    // Respuesta_cierre_reasignado: ticket.Respuesta_cierre_reasignado || "",
-                    // Resuelto_por: ticket.Resuelto_por?.Nombre || "",
-                    // Area_resuelto_por: Array.isArray(ticket.Resuelto_por?.Area)
-                    //     ? ticket.Resuelto_por?.Area[0]?.Area
-                    //     : "",
-                    // Cliente: ticket.Cliente?.Nombre || "",
-                    // Correo_cliente: ticket.Cliente?.Correo || "",
-                    // Telefono_cliente: ticket.Cliente?.Telefono || "",
-                    // //Extension_cliente: ticket.Cliente?.Extension || "",
-                    // Ubicacion_cliente: ticket.Cliente?.Ubicacion || "",
-                    // //Dependencia_cliente: ticket.Cliente?.Dependencia?.Dependencia || "",
-                    // DireccionG_cliente:
-                    //     ticket.Cliente?.Direccion_General?.Direccion_General || "",
-                    // DireccionA_cliente:
-                    //     ticket.Cliente?.direccion_area?.direccion_area || "",
+                    Creado_por: ticket.Creado_por?.Nombre || "",
+                    Area_creado_por: Array.isArray(ticket.Creado_por?.Area)
+                        ? ticket.Creado_por.Area[0]?.Area
+                        : "",
+                    Asignado_a: ticket.Asignado_a[0]?.Nombre || "",
+                    Area_asignado: Array.isArray(ticket.Asignado_a[0]?.Area)
+                        ? ticket.Asignado_a[0]?.Area[0]?.Area
+                        : "",
+                    Reasignado_a: ticket.Reasignado_a[0]?.Nombre || "",
+                    Area_reasignado_a: Array.isArray(ticket.Reasignado_a[0]?.Area)
+                        ? ticket.Reasignado_a[0]?.Area[0]?.Area
+                        : "",
+                    Respuesta_cierre_reasignado: ticket.Respuesta_cierre_reasignado || "",
+                    Resuelto_por: ticket.Resuelto_por?.Nombre || "",
+                    Area_resuelto_por: Array.isArray(ticket.Resuelto_por?.Area)
+                        ? ticket.Resuelto_por?.Area[0]?.Area
+                        : "",
+                    Cliente: ticket.Cliente?.Nombre || "",
+                    Correo_cliente: ticket.Cliente?.Correo || "",
+                    Telefono_cliente: ticket.Cliente?.Telefono || "",
+                    Extension_cliente: ticket.Cliente?.Extension || "",
+                    Ubicacion_cliente: ticket.Cliente?.Ubicacion || "",
+                    Dependencia_cliente: ticket.Cliente?.Dependencia?.Dependencia || "",
+                    DireccionG_cliente:
+                        ticket.Cliente?.Direccion_General?.Direccion_General || "",
+                    DireccionA_cliente:
+                        ticket.Cliente?.direccion_area?.direccion_area || "",
                 });
             });
 
