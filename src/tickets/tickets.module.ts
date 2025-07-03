@@ -25,6 +25,10 @@ import { CorreoService } from './services/correos.service';
 import { PutTicketsService } from './services/puttickets.service';
 import { CounterService } from './services/counter.service';
 import { Counter, CounterSchema } from 'src/schemas/counter.schema';
+import { Logs, LogsSchema } from 'src/schemas/log.schema';
+import { LogsService } from './services/logs.service';
+import { FilaCorreosService } from './services/filacorreos.service';
+import { Filacorreos, FilaCorreosSchema } from 'src/schemas/filacorreos.schema';
 import { Celula, CelulaSchema } from 'src/schemas/celula.schema';
 import { Puesto, PuestoSchema } from 'src/schemas/puestos.schema';
 import { NotificationGateway } from 'src/notifications/notification/notification.gateway';
@@ -47,12 +51,24 @@ const mongooseSchemas = [
   { name: Categorizacion.name, schema: CategorizacionSchema },
   { name: DireccionArea.name, schema: DireccionAreaSchema },
   { name: Counter.name, schema: CounterSchema },
+  { name: Logs.name, schema: LogsSchema },
+  { name: Filacorreos.name, schema: FilaCorreosSchema},
   { name: Celula.name, schema: CelulaSchema },
   { name: Puesto.name, schema: PuestoSchema },
 ];
 @Module({
   imports: [MongooseModule.forFeature(mongooseSchemas)],
-  providers: [GetTicketsService, PostTicketsService, UserService, ClienteService, CorreoService, PutTicketsService, CounterService, NotificationGateway],
+  providers: [
+    GetTicketsService,
+    PostTicketsService,
+    UserService,
+    ClienteService,
+    CorreoService,
+    PutTicketsService,
+    CounterService,
+    LogsService,
+    FilaCorreosService
+ , NotificationGateway],
   controllers: [TicketsController],
   exports: [GetTicketsService]
 })

@@ -88,8 +88,11 @@ export class TicketsController {
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: ReabrirTicketDto,
-    ): Promise<Ticket> {
-        return this.putticketsService.reabrirTicket(ticketData, req.user, token, files, id);
+    ): Promise<{ message: string; }> {
+         const result = await this.putticketsService.reabrirTicket(ticketData, req.user, token, files, id);
+         return {
+            message: result.message,
+        };
     };
 
     @Put('resolver/:id')

@@ -20,6 +20,8 @@ import * as fs from 'fs';
 import FormData = require('form-data');
 import { Clientes } from 'src/schemas/cliente.schema';
 import { validarRol } from 'src/common/utils/validacionRolUsuario';
+import { LogsService } from './logs.service';
+import { FilaCorreosService } from './filacorreos.service';
 import { Area } from 'src/schemas/area.schema';
 import { Dependencia } from 'src/schemas/dependencia.schema';
 import { DireccionGeneral } from 'src/schemas/direccion_general.schema';
@@ -34,8 +36,10 @@ export class PutTicketsService {
         private readonly gateway: NotificationGateway,
         private readonly getticketsService: GetTicketsService,
         private readonly userService: UserService,
+        private readonly logsService: LogsService,
         private readonly clienteService: ClienteService,
         private readonly correoService: CorreoService,
+        private readonly filacorreosService: FilaCorreosService,
         @InjectConnection() private readonly connection: Connection,
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
@@ -47,6 +51,7 @@ export class PutTicketsService {
         @InjectModel(Medio.name) private readonly medioModel: Model<Medio>,
         @InjectModel(Puesto.name) private readonly puestoModel: Model<Puesto>,
     ) { }
+
     async asginarTicket(ticketData: any, user: any, token: string, files: any, id: string): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
@@ -136,7 +141,8 @@ export class PutTicketsService {
                 );
 
                 if (!updatedTicket) {
-                    throw new BadRequestException("No se encontró el ticket para actualizar archivos.");
+                    await this.logsService.genericLog("Error al guardar archivos en el ticket.");
+                    throw new BadRequestException("Error al guardar archivos en el ticket.");
                 }
             }
             //Se valida a quien se va enviar el correo de asignación
@@ -146,31 +152,41 @@ export class PutTicketsService {
                     : updatedTicket.Asignado_a[0]
                 ).toString()
             );
-
-            console.log("Usuario", Usuario);
             //7.- Enviar correos
             let correoData = {
-                idTicket: updatedTicket.Id,
-                correoUsuario: Usuario?.Correo,
-                extensionCliente: cliente?.Extension,
-                descripcionTicket: updatedTicket.Descripcion,
-                nombreCliente: cliente?.Nombre,
-                telefonoCliente: cliente?.Telefono,
+                Id: updatedTicket.Id,
+                destinatario: Usuario?.Correo,
+                details: updatedTicket.Descripcion,
+                nombre: cliente?.Nombre,
+                extension: cliente?.Extension,
+                telefono: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
+                emails_extra: <string[]>[],
             };
             const channel = "channel_asignarTicket";
-            const correo = await this.correoService.enviarCorreo(correoData, channel, token);
-            if (correo) {
-                console.log("Mensaje enviado al email service");
+            try {
+                const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+                if (correo) {
+                    console.log("Mensaje enviado al email service");
+                    const savedlog = await this.logsService.successCorreoTicket(updatedTicket.Id, "asignado", correoData.destinatario || "desconocido", correoData.emails_extra);  //Se necesita el Id, la acción y el destinatario
+                }
+            } catch (correoError) {
+                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                const savedlog = await this.logsService.errorCorreo(updatedTicket.Id, "asignado", correoData.destinatario || "desconocido", correoData.emails_extra);
+                const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
+                return {
+                    message: `Ticket ${updatedTicket.Id} asignado correctamente, correo agregado a la fila.`,
+                };
             }
 
             return {
                 message: `Ticket ${updatedTicket.Id} asignado correctamente.`,
             };
         } catch (error) {
-            console.error("Error al crear el Ticket:", error.message);
-            throw new BadRequestException("Error interno del servidor.");
+            await this.logsService.genericLog("❌ Error al asignar el Ticket.");
+            throw new BadRequestException("❌ Error al asignar el Ticket.");
         }
     };
     async reasginarTicket(ticketData: any, user: any, token: string, files: any, id: string): Promise<{ message: string; }> {
@@ -277,33 +293,42 @@ export class PutTicketsService {
             const cliente = await this.clienteService.getCliente(updatedTicket?.Cliente);
             //7.- Enviar correos
             let correoData = {
-                idTicket: updatedTicket.Id,
-                correoUsuario: Usuario?.Correo,
-                extensionCliente: cliente?.Extension,
-                descripcionTicket: updatedTicket.Descripcion,
-                nombreCliente: cliente?.Nombre,
-                telefonoCliente: cliente?.Telefono,
+                Id: updatedTicket.Id,
+                destinatario: Usuario?.Correo,
+                extension: cliente?.Extension,
+                details: updatedTicket.Descripcion,
+                nombre: cliente?.Nombre,
+                telefono: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
+                emails_extra: <string[]>[],
             };
             const channel = "channel_reasignarTicket";
-            const correo = await this.correoService.enviarCorreo(correoData, channel, token);
-            if (correo) {
-                console.log("Mensaje enviado al email service");
+            try {
+                const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+                if (correo) {
+                    console.log("Mensaje enviado al email service");
+                    const savedlog = await this.logsService.successCorreoTicket(updatedTicket.Id, "reasignado", correoData.destinatario || "desconocido", correoData.emails_extra);  //Se necesita el Id, la acción y el destinatario
+                }
+            } catch (correoError) {
+                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                const savedlog = await this.logsService.errorCorreo(updatedTicket.Id, "reasignado", correoData.destinatario || "desconocido", correoData.emails_extra);
+                const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
+                return {
+                    message: `Ticket ${updatedTicket.Id} reasignado correctamente, correo agregado a la fila.`,
+                };
             }
-            if (updatedTicket) {
-                console.log("Ticket reasignado correctamente.");
-            }
+
             return {
                 message: `Ticket ${updatedTicket.Id} reasignado correctamente.`,
             };
         } catch (error) {
-            console.error("Error al crear el Ticket:", error.message);
-            throw new BadRequestException("Error interno del servidor.");
+            await this.logsService.genericLog("❌ Error al reasignar el Ticket.");
+            throw new BadRequestException("❌ Error al reasignar el Ticket.");
         }
-
     };
-    async reabrirTicket(ticketData: any, user: any, token: string, files: any, id: string): Promise<Ticket> {
+    async reabrirTicket(ticketData: any, user: any, token: string, files: any, id: string): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
@@ -383,26 +408,39 @@ export class PutTicketsService {
             const cliente = await this.clienteService.getCliente(updatedTicket.Cliente);
             //7.- Enviar correos
             let correoData = {
-                idTicket: updatedTicket.Id,
-                correoUsuario: Usuario?.Correo,
-                correoCliente: cliente?.Correo,
-                extensionCliente: cliente?.Extension,
-                descripcionTicket: updatedTicket.Descripcion,
-                nombreCliente: cliente?.Nombre,
-                telefonoCliente: cliente?.Telefono,
+                Id: updatedTicket.Id,
+                destinatario: cliente?.Correo,
+                emails_extra: Usuario?.Correo ? [Usuario?.Correo] : <string[]>[],
+                details: updatedTicket.Descripcion,
+                nombre: cliente?.Nombre,
+                extension: cliente?.Extension,
+                telefono: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
             };
             const channel = "channel_reabrirTicket";
-            const correo = await this.correoService.enviarCorreo(correoData, channel, token);
-            if (correo) {
-                console.log("Mensaje enviado al email service");
+            try {
+                const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+                if (correo) {
+                    console.log("Mensaje enviado al email service");
+                    const savedlog = await this.logsService.successCorreoTicket(updatedTicket.Id, "reabierto", correoData.destinatario || "desconocido", correoData.emails_extra);  //Se necesita el Id, la acción y el destinatario
+                }
+            } catch (correoError) {
+                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                const savedlog = await this.logsService.errorCorreo(updatedTicket.Id, "reabierto", correoData.destinatario || "desconocido", correoData.emails_extra);
+                const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
+                return {
+                    message: `Ticket ${updatedTicket.Id} reabierto correctamente, correo agregado a la fila.`,
+                };
             }
 
-            return updatedTicket;
+            return {
+                message: `Ticket ${updatedTicket.Id} reabierto correctamente.`,
+            };
         } catch (error) {
-            console.error("Error al crear el Ticket:", error.message);
-            throw new BadRequestException("Error interno del servidor.");
+            await this.logsService.genericLog("❌ Error al reabrir el Ticket.");
+            throw new BadRequestException("❌ Error al reabrir el Ticket.");
         }
     };
     async resolverTicket(ticketData: any, user: any, token: string, files: any, id: string): Promise<{ message: string; }> {
@@ -670,12 +708,35 @@ export class PutTicketsService {
                     throw new BadRequestException("No se encontró el ticket para actualizar archivos.");
                 }
             }
+            let correoData = {
+                Id: updatedTicket.Id,
+                details: ticketData.descripcion_retorno,
+            };
+            const channel = "channel_regresarTicketMesa";
+            try {
+                console.log("1");
+                const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+                if (correo) {
+                    console.log("Mensaje enviado al email service");
+                    const savedlog = await this.logsService.successCorreoTicket(updatedTicket.Id, "devuelto a mesa de servicio", "", []);  //Se envian los campos vacios porque no son necesarios
+                }
+            } catch (correoError) {
+                console.log("2");
+                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                const savedlog = await this.logsService.errorCorreo(updatedTicket.Id, "devuelto a mesa de servicio", "", []); //Se envian los campos vacios porque no son necesarios
+                const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
+                return {
+                    message: `Ticket ${updatedTicket.Id} devuelto a mesa de servicio correctamente, correo agregado a la fila.`,
+                };
+            }
+
             return {
-                message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
+                message: `Ticket ${updatedTicket.Id} devuelto a mesa de servicio correctamente.`,
             };
         } catch (error) {
-            console.error("Error al rechazar solución:", error.message);
-            throw new BadRequestException("Error interno del servidor.");
+            await this.logsService.genericLog("❌ Error al devolver el ticket a mesa de servicio.");
+            throw new BadRequestException("❌ Error al devolver el ticket a mesa de servicio.");
         }
     };
     async regresarTicketModerador(ticketData: any, user: any, files: any, token: string, id: string): Promise<{ message: string; }> {
@@ -738,13 +799,35 @@ export class PutTicketsService {
                     throw new BadRequestException("No se encontró el ticket para actualizar archivos.");
                 }
             }
-            //Se valida a quien se va enviar el correo de asignación
+            let correoData = {
+                Id: updatedTicket.Id,
+                destinatario: (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])), //Moderador
+                details: ticketData.descripcion_retorno,
+                emails_extra: <string[]>[],
+            };
+            const channel = "channel_regresarTicketModerador";
+            try {
+                const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+                if (correo) {
+                    console.log("Mensaje enviado al email service");
+                    const savedlog = await this.logsService.successCorreoTicket(updatedTicket.Id, "devuelto a moderador", correoData.destinatario || "desconocido", correoData.emails_extra);  //Se necesita el Id, la acción y el destinatario
+                }
+            } catch (correoError) {
+                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                const savedlog = await this.logsService.errorCorreo(updatedTicket.Id, "devuelto a moderador", correoData.destinatario || "desconocido", correoData.emails_extra);
+                const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
+                return {
+                    message: `Ticket ${updatedTicket.Id} devuelto a moderador correctamente, correo agregado a la fila.`,
+                };
+            }
+
             return {
-                message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
+                message: `Ticket ${updatedTicket.Id} devuelto a moderador correctamente.`,
             };
         } catch (error) {
-            console.error("Error al rechazar solución:", error.message);
-            throw new BadRequestException("Error interno del servidor.");
+            await this.logsService.genericLog("❌ Error al devolver el ticket al moderador.");
+            throw new BadRequestException("❌ Error al devolver el ticket al moderador.");
         }
     };
     async regresarTicketResolutor(ticketData: any, user: any, files: any, token: string, id: string): Promise<{ message: string; }> {
@@ -804,23 +887,35 @@ export class PutTicketsService {
             const Usuario = await this.userService.getUsuario(updatedTicket.Reasignado_a[0]._id.toString());
             //7.- Enviar correos
             const correoData = {
-                idTicket: updatedTicket.Id,
-                correoResolutor: Usuario?.Correo,
-                Descripcion_respuesta_cliente: ticketData.Descripcion_respuesta_cliente,
+                Id: updatedTicket.Id,
+                destinatario: Usuario?.Correo,
+                details: ticketData.Descripcion_respuesta_cliente,
+                emails_extra: <string[]>[],
             };
 
-            console.log("Correo data", correoData);
             const channel = "channel_regresarTicketResolutor";
-            const correo = await this.correoService.enviarCorreo(correoData, channel, token);
-            if (correo) {
-                console.log("Mensaje enviado al email service");
+            try {
+                const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+                if (correo) {
+                    console.log("Mensaje enviado al email service");
+                    const savedlog = await this.logsService.successCorreoTicket(updatedTicket.Id, "devuelto a resolutor", correoData.destinatario || "desconocido", correoData.emails_extra);  //Se necesita el Id, la acción y el destinatario
+                }
+            } catch (correoError) {
+                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                const savedlog = await this.logsService.errorCorreo(updatedTicket.Id, "devuelto a resolutor", correoData.destinatario || "desconocido", correoData.emails_extra);
+                const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
+                return {
+                    message: `Ticket ${updatedTicket.Id} devuelto a resolutor correctamente, correo agregado a la fila.`,
+                };
             }
+
             return {
-                message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
+                message: `Ticket ${updatedTicket.Id} devuelto a resolutor correctamente.`,
             };
         } catch (error) {
-            console.error("Error al rechazar solución:", error.message);
-            throw new BadRequestException("Error interno del servidor.");
+            await this.logsService.genericLog("❌ Error al devolver el ticket al resolutor.");
+            throw new BadRequestException("❌ Error al devolver el ticket al resolutor.");
         }
     };
     async cerrarTicket(ticketData: any, user: any, token: string, files: any, id: string): Promise<{ message: string; }> {
@@ -859,6 +954,7 @@ export class PutTicketsService {
                 { new: true, upsert: true }
             );
             if (!updatedTicket) {
+                await this.logsService.genericLog("No fue posible cerrar el ticket.");
                 console.log("Transacción abortada.");
                 await session.abortTransaction();
                 session.endSession();
@@ -879,12 +975,13 @@ export class PutTicketsService {
             const cliente = await this.clienteService.getCliente(updatedTicket.Cliente);
             //7.- Enviar correos
             const formData = new FormData();
-
             const correoData = {
-                details: ticketData.Descripcion_cierre,
-                idTicket: updatedTicket.Id,
+                Id: updatedTicket.Id,
                 destinatario: cliente.Correo,
+                details: ticketData.Descripcion_cierre,
+                emails_extra: <string[]>[],
             };
+            console.log("correoData", correoData);
 
             formData.append('correoData', JSON.stringify(correoData));
 
@@ -894,28 +991,45 @@ export class PutTicketsService {
                     formData.append('files', buffer, file.originalname);
                 });
             }
-            const response = await this.correoService.enviarCorreoHTTP(formData, 'cerrar', updateData._id, token);
-            if (response.success) {
+
+            try {
+                const correo = await this.correoService.enviarCorreoHTTP(formData, 'cerrar', updateData._id, token);
+                if (correo) {
+                    console.log("Mensaje enviado al email service");
+                    const savedlog = await this.logsService.successCorreoTicket(updatedTicket.Id, "cerrado", correoData.destinatario || "desconocido", correoData.emails_extra);  //Se necesita el Id, la acción y el destinatario
+                }
+            } catch (correoError) {
+                let uploadedFiles = [];
+                if (files.length > 0) {
+                    console.log("Guardando archivos");
+                    const result = await guardarArchivos(token, files);
+                    uploadedFiles = result?.data;
+                    if (!result) {
+                        await this.logsService.genericLog("Error al subir archivos.");
+                        throw new BadRequestException("Error al subir archivos.");
+                    }
+                }
+                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                const savedlog = await this.logsService.errorCorreo(updatedTicket.Id, "cerrado", correoData.destinatario || "desconocido", correoData.emails_extra);
+                const savedCorreo = await this.filacorreosService.agregarCorreoHTTP(correoData, "cerrar", EstadoCorreo as Types.ObjectId, uploadedFiles);
                 return {
-                    message: response.message,
+                    message: `Ticket ${updatedTicket.Id} cerrado correctamente, correo agregado a la fila.`,
                 };
-            } else {
-                console.log("Transacción abortada.");
-                await session.abortTransaction();
-                session.endSession();
-                throw new BadRequestException("Ocurrió un error al notificar al usuario.");
             }
+            return {
+                message: `Ticket ${updatedTicket.Id} cerrado correctamente.`,
+            };
         } catch (error) {
-            console.error("Error al crear el Ticket:", error.message);
-            throw new BadRequestException("Error interno del servidor.");
+            await this.logsService.genericLog("❌ Error al cerrar el Ticket.");
+            throw new BadRequestException("❌ Error al cerrar el Ticket.");
         }
     };
     async agregarNota(ticketData: any, user: any, files: any, id: string, token: string): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
-        let Destinatario1 = "";
-        let Destinatario2 = "";
-        let Destinatario3 = "";
+        let destinatario = "";
+        let emails_extra: string[] = [];
         try {
             const Historia_ticket = await historicoNota(user, ticketData);
             const updateData: any = {
@@ -951,65 +1065,85 @@ export class PutTicketsService {
                 return { message: `No fue posible agregar la Nota.` };
             }
 
-            console.log("ROl", user.rol);
             if (user.rol === "Usuario") {
-                Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
-                //Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //PM
+                destinatario = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
+                //const PM = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //PM 
+                // if (PM) {
+                //     emails_extra.push(PM);
+                // }
             } else if (user.rol === "Moderador") {
-                Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
-                //Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a)) ?? ""; //PM
+                destinatario = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
+                //const PM = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //PM 
+                // if (PM) {
+                //     emails_extra.push(PM);
+                // }
             } else if (user.rol === "Auditor") {
-                Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
-                Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
+                destinatario = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
+                const Resolutor = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //Resolutor
+                if (Resolutor) {
+                    emails_extra.push(Resolutor);
+                }
             } else {
-                Destinatario1 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //Moderador
-                Destinatario2 = (await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0])) ?? ""; //Resolutor
-                //Destinatario3 = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //PM
+                destinatario = (await this.userService.getCorreoUsuario(updatedTicket.Asignado_a[0])) ?? ""; //el asignado siempre va a ser mesa, no se deben enviar correos a mesa
+                const Resolutor = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //Resolutor
+                //const PM = await this.userService.getCorreoUsuario(updatedTicket.Reasignado_a[0]); //PM 
+                if (Resolutor) {
+                    emails_extra.push(Resolutor);
+                }
             }
 
             const correoData = {
-                Nota: ticketData.Nota,
-                idTicket: updatedTicket.Id,
-                Destinatario1,
-                Destinatario2,
-                Destinatario3,
+                Id: updatedTicket.Id,
+                destinatario: destinatario,
+                emails_extra,
+                details: ticketData.Nota,
             };
 
-            if (!Destinatario1 && !Destinatario2 && !Destinatario3) {
+            if (!destinatario) {
                 console.warn("No hay destinatarios válidos para enviar el correo.");
                 await session.abortTransaction();
                 session.endSession();
                 return { message: `Nota agregada correctamente al Ticket ${updatedTicket.Id}.` };
             }
-            console.log("CorreData", correoData);
             const channel = "channel_notas";
-            const correo = await this.correoService.enviarCorreo(correoData, channel, token);
-            if (!correo) {
-                console.log("Transacción abortada.");
-                await session.abortTransaction();
-                session.endSession();
-                return { message: `No fue posible agregar la Nota.` };
-            } else {
-                console.log("Mensaje enviado al email service");
+            if (correoData.destinatario !== "standby@standby.com") {
+                try {
+                    const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+                    if (correo) {
+                        console.log("Mensaje enviado al email service");
                 this.gateway.sendNotification(
                     `📝 Nueva nota agregada al ticket ${updatedTicket.Id}`
                 );
-                return { message: `Nota agregada correctamente al Ticket ${updatedTicket.Id}.` };
+                        const savedlog = await this.logsService.successCorreoTicket(updatedTicket.Id, "nota agregada", correoData.destinatario || "desconocido", correoData.emails_extra);  //Se necesita el Id, la acción y el destinatario
+                    }
+                } catch (correoError) {
+                    const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                    const savedlog = await this.logsService.errorCorreo(updatedTicket.Id, "nota agregada", correoData.destinatario || "desconocido", correoData.emails_extra);
+                    const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
+                    return {
+                        message: ` Nota agregada correctamente al Ticket ${updatedTicket.Id}, correo agregado a la fila.`,
+                    };
+                }
+            } else {
+                try {
+                    await this.logsService.genericLog(`✅ Nota agregada correctamente al Ticket ${updatedTicket.Id}`);
+                } catch (logError) {
+                    console.error("Error al registrar log genérico:", logError);
+                    // No se lanza error para no afectar el flujo
+                }
             }
+            return {
+                message: `Nota agregada correctamente al Ticket ${updatedTicket.Id}.`,
+            };
+
 
         } catch (error) {
-            console.error("Error al crear el Ticket:", error.message);
-            throw new BadRequestException("Error interno del servidor.");
+            await this.logsService.genericLog("❌ Error al agregar la nota.");
+            throw new BadRequestException("❌ Error al agregar la nota.");
         }
     };
-    async marcarTicketPendiente(
-        _id: string,
-        user: { userId: string; nombre: string },
-        cuerpoCorreo: string,
-        emails_extra: string[],
-        files: Express.Multer.File[],
-        token: string,
-    ): Promise<Ticket> {
+    async marcarTicketPendiente(_id: string, user: { userId: string; nombre: string }, cuerpoCorreo: string, emails_extra: string[], files: Express.Multer.File[], token: string,): Promise<{ message: string; }> {
+        console.log("extra", emails_extra);
         try {
             const resultEstado = await this.getticketsService.getIdEstadoTicket('PENDIENTES');
 
@@ -1048,10 +1182,10 @@ export class PutTicketsService {
             const formData = new FormData();
 
             const correoData = {
-                details: cuerpoCorreo,
-                idTicket: result.Id,
+                Id: result.Id,
                 destinatario: cliente.Correo,
-                emails_extra,
+                emails_extra: emails_extra !== undefined ? emails_extra : <string[]>[],
+                details: cuerpoCorreo,
             };
 
             formData.append('correoData', JSON.stringify(correoData));
@@ -1063,30 +1197,38 @@ export class PutTicketsService {
                 });
             }
 
-            const response = await this.correoService.enviarCorreoHTTP(formData, 'pendiente', _id, token);
-
-            if (response.success) {
-                return response.data;
-            } else {
-                console.error(
-                    '⚠️    Hubo un problema al enviar el correo:',
-                    response.data.message || response.data,
-                );
+            try {
+                const correo = await this.correoService.enviarCorreoHTTP(formData, 'pendiente', _id, token);
+                console.log("Mensaje enviado al email service");
+                const savedlog = await this.logsService.successPendiente(result.Id, correoData.destinatario || "desconocido", correoData.emails_extra);  //Se necesita el Id, la acción y el destinatario
+            } catch (correoError) {
+                let uploadedFiles = [];
+                if (files.length > 0) {
+                    console.log("Guardando archivos");
+                    const result = await guardarArchivos(token, files);
+                    uploadedFiles = result?.data;
+                    if (!result) {
+                        await this.logsService.genericLog("Error al subir archivos.");
+                        throw new BadRequestException("Error al subir archivos.");
+                    }
+                }
+                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                const savedlog = await this.logsService.errorPendiente(result.Id, correoData.destinatario || "desconocido", correoData.emails_extra);
+                const savedCorreo = await this.filacorreosService.agregarCorreoHTTP(correoData, "pendiente", EstadoCorreo as Types.ObjectId, uploadedFiles);
+                return {
+                    message: `Ticket ${result.Id} pendiente, correo agregado a la fila.`,
+                };
             }
-            throw new BadRequestException('Ocurrio un error al enviar al correo.');
+            return {
+                message: `Ticket ${result.Id} marcado como pendiente correctamente.`,
+            };
         } catch (error) {
-            console.error('Error al marcar el ticket como pendiente', error);
-            throw new InternalServerErrorException('Error interno del servidor.');
+            await this.logsService.genericLog("❌ Error al marcar el ticket como pendiente.");
+            throw new BadRequestException("❌ Error al marcar el ticket como pendiente.");
         }
     };
-    async contactarCliente(
-        _id: string,
-        user: { userId: string; nombre: string },
-        cuerpoCorreo: string,
-        emails_extra: string[],
-        files: Express.Multer.File[],
-        token: string,
-    ): Promise<Ticket> {
+    async contactarCliente(_id: string, user: { userId: string; nombre: string }, cuerpoCorreo: string, emails_extra: string[], files: Express.Multer.File[], token: string,): Promise<{ message: string; }> {
         try {
             const { userId, nombre } = user;
 
@@ -1119,10 +1261,10 @@ export class PutTicketsService {
             const formData = new FormData();
 
             const correoData = {
-                details: cuerpoCorreo,
-                idTicket: result.Id,
+                Id: result.Id,
                 destinatario: cliente.Correo,
                 emails_extra,
+                details: cuerpoCorreo,
             };
             console.log("CorreoData", correoData);
             formData.append('correoData', JSON.stringify(correoData));
@@ -1134,24 +1276,36 @@ export class PutTicketsService {
                 });
             }
 
-            const response = await this.correoService.enviarCorreoHTTP(
-                formData,
-                'contactoCliente',
-                _id,
-                token,
-            );
-            if (response.success) {
-                return response.data;
-            } else {
-                console.error(
-                    '⚠️    Hubo un problema al enviar el correo:',
-                    response.data.message || response.data,
+            try {
+                const correo = await this.correoService.enviarCorreoHTTP(formData, 'contactoCliente', _id, token,
                 );
+                console.log("Mensaje enviado al email service");
+                const savedlog = await this.logsService.successCorreoContacto(result.Id, correoData.destinatario || "desconocido", correoData.emails_extra);  //Se necesita el Id, la acción y el destinatario
+            } catch (correoError) {
+                let uploadedFiles = [];
+                if (files.length > 0) {
+                    console.log("Guardando archivos");
+                    const result = await guardarArchivos(token, files);
+                    uploadedFiles = result?.data;
+                    if (!result) {
+                        await this.logsService.genericLog("Error al subir archivos.");
+                        throw new BadRequestException("Error al subir archivos.");
+                    }
+                }
+                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
+                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                const savedlog = await this.logsService.errorContacto(result.Id, correoData.destinatario || "desconocido", correoData.emails_extra);
+                const savedCorreo = await this.filacorreosService.agregarCorreoHTTP(correoData, "contactoCliente", EstadoCorreo as Types.ObjectId, uploadedFiles);
+                return {
+                    message: `No se pudo contactar al cliente, correo agregado a la fila.`,
+                };
             }
-            throw new BadRequestException('Ocurrio un error al enviar al correo.');
+            return {
+                message: `Cliente contactado.`,
+            };
         } catch (error) {
-            console.error('Error al contactar al cliente', error);
-            throw new InternalServerErrorException('Error interno del servidor.');
+            await this.logsService.genericLog("❌ Error al contactar al cliente.");
+            throw new BadRequestException("❌ Error al contactar al cliente.");
         }
     };
     async PendingReason(ticketData: any, user: any, id: string): Promise<{ message: string; }> {
@@ -1175,13 +1329,13 @@ export class PutTicketsService {
                 console.log("Transacción abortada.");
                 await session.abortTransaction();
                 session.endSession();
-                return { message: `No fue posible agregar la Nota.` };
+                return { message: `No fue posible agregar la razón pendiente.` };
             } else {
-                return { message: `PendingReason agregada correctamente al Ticket ${updatedTicket.Id}.` };
+                return { message: `Razón pendiente agregada correctamente al Ticket ${updatedTicket.Id}.` };
             }
 
         } catch (error) {
-            console.error("Error al crear el Ticket:", error.message);
+            console.error("Error al agregar pendingreason el Ticket:", error.message);
             throw new BadRequestException("Error interno del servidor.");
         }
     };
@@ -1236,7 +1390,7 @@ export class PutTicketsService {
             };
 
         } catch (error) {
-            console.error("Error al crear el Ticket:", error.message);
+            console.error("Error al editar el Ticket:", error.message);
             throw new BadRequestException("Error interno del servidor.");
         }
     };
