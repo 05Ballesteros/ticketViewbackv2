@@ -5,6 +5,8 @@ import { TicketsModule } from './tickets/tickets.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { NotificationGateway } from './notifications/notification/notification.gateway';
 
 @Module({
   imports: [
@@ -14,8 +16,9 @@ import { AuthModule } from './auth/auth.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    NotificationsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, NotificationGateway],
 })
 export class AppModule {}

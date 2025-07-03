@@ -289,6 +289,93 @@ export class TicketsController {
     @Get('areas')
     getAreas() { return this.getticketsService.getAreas(); };
 
+    @Post('areas')
+    createAreas(@Body('area') area: string) { 
+        return this.postticketsService.createAreas(area); 
+    };
+
+    @Put('areas/:id')
+    updateArea(@Param('id') id: string, @Body('area') area: string) {
+        console.log("area en el controlador", area)
+        return this.putticketsService.updateArea(id, area)
+    };
+
+    @Get('dependencias')
+    getDependencias() { return this.getticketsService.getDependencias(); };
+
+    @Post('dependencias')
+    createDependencias(@Body('dependencia') dependencia: string) { 
+        return this.postticketsService.createDependencias(dependencia); 
+    };
+
+    @Put('dependencias/:id')
+    updateDependencia(@Param('id') id: string, @Body('dependencia') dependencia: string) {
+        return this.putticketsService.updateDependencia(id, dependencia)
+    };
+
+    @Get('dgenerales')
+    getDGenerales() { return this.getticketsService.getDGenerales(); };
+
+    @Post('dgenerales')
+    createDGeneral(@Body('dgeneral') dgeneral: string) { 
+        return this.postticketsService.createDGenerales(dgeneral); 
+    };
+
+    @Put('dgenerales/:id')
+    updateDGeneral(@Param('id') id: string, @Body('dgeneral') dgeneral: string) {
+        return this.putticketsService.updateDGeneral(id, dgeneral)
+    };
+
+    @Get('dareas')
+    getDAreas() { return this.getticketsService.getDAreas(); };
+
+    @Post('dareas')
+    createDArea(@Body('darea') darea: string) { 
+        return this.postticketsService.createDAreas(darea); 
+    };
+
+    @Put('dareas/:id')
+    updateDArea(@Param('id') id: string, @Body('darea') darea: string) {
+        return this.putticketsService.updateDArea(id, darea)
+    };
+
+    @Post('medios')
+    createMedio(@Body('medio') medio: string) { 
+        return this.postticketsService.createMedios(medio); 
+    };
+
+    @Put('medios/:id')
+    updateMedios(@Param('id') id: string, @Body('medio') medio: string) {
+        return this.putticketsService.updateMedios(id, medio)
+    };
+
+    @Get('puestos')
+    getPuestos() { return this.getticketsService.getPuestos(); };
+
+    @Post('puestos')
+    createPuestos(@Body('puesto') puesto: string) { 
+        return this.postticketsService.createPuestos(puesto); 
+    };
+
+    @Put('puestos/:id')
+    updatePuesto(@Param('id') id: string, @Body('puesto') puesto: string) {
+        return this.putticketsService.updatePuesto(id, puesto)
+    };
+
+    @Get('catalogoservicio')
+    getCatalogoServicios() { return this.getticketsService.getCatalogoServicios(); };
+
+    // @Post('catalogoservicio')
+    // createCatalogoServicios(@Body('catalogo') catalogo: string) { 
+    //     return this.postticketsService.createCatalogoServicios(catalogo); 
+    // };
+
+    // @Put('catalogoservicio/:id')
+    // updateCatalogoServicio(@Param('id') id: string, @Body('catalogo') catalogo: string) {
+    //     return this.putticketsService.updateCatalogoServicio(id, catalogo)
+    // };
+
+
     @Get('historico/area')
     getTicketsPorArea(@Query('area') area: string) {
         try {
@@ -566,6 +653,20 @@ export class TicketsController {
     async getBusquedaAvanzadaArea(@Query('termino') area: string) {
         try {
             return this.getticketsService.getBusquedaAvanzadaArea(area);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+            throw new HttpException(
+                { message: 'Error interno al obtener los tickets.', details: errorMessage },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('/celula')
+    async getBusquedaAvanzadaCelula(@Query('termino') celula: string) {
+        try {
+            return this.getticketsService.getBusquedaAvanzadaCelula(celula);
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
 

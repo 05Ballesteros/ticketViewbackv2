@@ -25,6 +25,9 @@ import { CorreoService } from './services/correos.service';
 import { PutTicketsService } from './services/puttickets.service';
 import { CounterService } from './services/counter.service';
 import { Counter, CounterSchema } from 'src/schemas/counter.schema';
+import { Celula, CelulaSchema } from 'src/schemas/celula.schema';
+import { Puesto, PuestoSchema } from 'src/schemas/puestos.schema';
+import { NotificationGateway } from 'src/notifications/notification/notification.gateway';
 
 const mongooseSchemas = [
   { name: Ticket.name, schema: TicketSchema },
@@ -44,10 +47,13 @@ const mongooseSchemas = [
   { name: Categorizacion.name, schema: CategorizacionSchema },
   { name: DireccionArea.name, schema: DireccionAreaSchema },
   { name: Counter.name, schema: CounterSchema },
+  { name: Celula.name, schema: CelulaSchema },
+  { name: Puesto.name, schema: PuestoSchema },
 ];
 @Module({
   imports: [MongooseModule.forFeature(mongooseSchemas)],
-  providers: [GetTicketsService, PostTicketsService, UserService, ClienteService, CorreoService, PutTicketsService, CounterService ],
-  controllers: [TicketsController]
+  providers: [GetTicketsService, PostTicketsService, UserService, ClienteService, CorreoService, PutTicketsService, CounterService, NotificationGateway],
+  controllers: [TicketsController],
+  exports: [GetTicketsService]
 })
 export class TicketsModule { };

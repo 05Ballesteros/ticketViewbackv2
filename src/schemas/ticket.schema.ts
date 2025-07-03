@@ -109,7 +109,7 @@ export class Ticket extends Document {
   PendingReason: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Celula', default: [] })
-  Celula: Types.ObjectId;
+  Celulas: Types.ObjectId;
 }
 
 export type TicketDocument = Ticket & Document;

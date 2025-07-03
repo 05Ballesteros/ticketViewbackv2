@@ -20,10 +20,18 @@ import * as fs from 'fs';
 import FormData = require('form-data');
 import { Clientes } from 'src/schemas/cliente.schema';
 import { validarRol } from 'src/common/utils/validacionRolUsuario';
+import { Area } from 'src/schemas/area.schema';
+import { Dependencia } from 'src/schemas/dependencia.schema';
+import { DireccionGeneral } from 'src/schemas/direccion_general.schema';
+import { DireccionArea } from 'src/schemas/direccionarea.schema';
+import { Medio } from 'src/schemas/mediocontacto.schema';
+import { Puesto } from 'src/schemas/puestos.schema';
+import { NotificationGateway } from 'src/notifications/notification/notification.gateway';
 
 @Injectable()
 export class PutTicketsService {
     constructor(
+        private readonly gateway: NotificationGateway,
         private readonly getticketsService: GetTicketsService,
         private readonly userService: UserService,
         private readonly clienteService: ClienteService,
@@ -32,6 +40,12 @@ export class PutTicketsService {
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
         @InjectModel(Clientes.name) private readonly clienteModel: Model<Clientes>,
+        @InjectModel(Area.name) private readonly areaModel: Model<Area>,
+        @InjectModel(Dependencia.name) private readonly dependenciaModel: Model<Dependencia>,
+        @InjectModel(DireccionGeneral.name) private readonly direcciongeneralModel: Model<DireccionGeneral>,
+        @InjectModel(DireccionArea.name) private readonly direccionAreaModel: Model<DireccionArea>,
+        @InjectModel(Medio.name) private readonly medioModel: Model<Medio>,
+        @InjectModel(Puesto.name) private readonly puestoModel: Model<Puesto>,
     ) { }
     async asginarTicket(ticketData: any, user: any, token: string, files: any, id: string): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
@@ -977,6 +991,9 @@ export class PutTicketsService {
                 return { message: `No fue posible agregar la Nota.` };
             } else {
                 console.log("Mensaje enviado al email service");
+                this.gateway.sendNotification(
+                    `📝 Nueva nota agregada al ticket ${updatedTicket.Id}`
+                );
                 return { message: `Nota agregada correctamente al Ticket ${updatedTicket.Id}.` };
             }
 
@@ -1264,4 +1281,68 @@ export class PutTicketsService {
             throw new BadRequestException("Error interno del servidor.");
         }
     };
+
+
+    async updateArea(_id: string, Area: string) {
+        try {
+            const result = await this.areaModel.updateOne({ _id }, { $set: { Area } });
+            if (!result) throw new BadRequestException("Ocurrio un error al actualizar el área");
+            return { message: "El área se actualizó de manera correcta" }
+        } catch (error) {
+            console.log(error)
+            throw new InternalServerErrorException("Ocurrió un error al actualizar el área: Error interno en el servidor.")
+        }
+    }
+
+    async updateDependencia(_id: string, Dependencia: string) {
+        try {
+            const result = await this.dependenciaModel.updateOne({ _id }, { $set: { Dependencia } });
+            if (!result) throw new BadRequestException("Ocurrio un error al actualizar el área");
+            return { message: "La dependencia se actualizó de manera correcta" }
+        } catch (error) {
+            console.log(error)
+            throw new InternalServerErrorException("Ocurrió un error al actualizar la dependencia: Error interno en el servidor.")
+        }
+    }
+
+    async updateDGeneral(_id: string, Direccion_General: string) {
+        try {
+            const result = await this.direcciongeneralModel.updateOne({ _id }, { $set: { Direccion_General } });
+            if (!result) throw new BadRequestException("Ocurrio un error al actualizar la direccion general");
+            return { message: "La direccion general se actualizó de manera correcta" }
+        } catch (error) {
+            console.log(error)
+            throw new InternalServerErrorException("Ocurrió un error al actualizar la direccion general: Error interno en el servidor.")
+        }
+    }
+
+    async updateDArea(_id: string, direccion_area: string) {
+        try {
+            const result = await this.direccionAreaModel.updateOne({ _id }, { $set: { direccion_area } });
+            if (!result) throw new BadRequestException("Ocurrio un error al actualizar la direccion de área");
+            return { message: "La direccion de área se actualizó de manera correcta" }
+        } catch (error) {
+            throw new InternalServerErrorException("Ocurrió un error al actualizar la direccion de área: Error interno en el servidor.")
+        }
+    }
+
+    async updateMedios(_id: string, Medio: string) {
+        try {
+            const result = await this.medioModel.updateOne({ _id }, { $set: { Medio } });
+            if (!result) throw new BadRequestException("Ocurrio un error al actualizar el medio de contacto");
+            return { message: "El medio de contacto se actualizó de manera correcta" }
+        } catch (error) {
+            throw new InternalServerErrorException("Ocurrió un error al actualizar el medio de contacto: Error interno en el servidor.")
+        }
+    }
+
+    async updatePuesto(_id: string, Puesto: string) {
+        try {
+            const result = await this.puestoModel.updateOne({ _id }, { $set: { Puesto } });
+            if (!result) throw new BadRequestException("Ocurrio un error al actualizar el puesto de trabajo");
+            return { message: "El puesto de trabajo se actualizó de manera correcta" }
+        } catch (error) {
+            throw new InternalServerErrorException("Ocurrió un error al actualizar el puesto de trabajo: Error interno en el servidor.")
+        }
+    }
 }; 
