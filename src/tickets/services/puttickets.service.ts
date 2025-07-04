@@ -346,6 +346,8 @@ export class PutTicketsService {
                 },
                 $unset: {
                     PendingReason: "",
+                    Respuesta_cierre_reasignado: "",
+                    Descripcion_cierre: "",
                 },
                 $push: {
                     Historia_ticket: { $each: Historia_ticket },
@@ -432,11 +434,12 @@ export class PutTicketsService {
     async resolverTicket(ticketData: any, user: any, token: string, files: any, id: string): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
+        console.log("Revisar el vistobueno", ticketData);
         try {
             // Declarar variables
             let Estado: any | null = null;
             // 1.- Obtener datos necesarios para actualizar el ticket
-            if (user.rol === "Usuario" && ticketData.vistoBueno === true) {
+            if (user.rol === "Usuario" && ticketData.vistoBueno === "true") {
                 Estado = await this.getticketsService.getEstado("REVISION");
             } else {
                 Estado = await this.getticketsService.getEstado("RESUELTOS");
@@ -1092,7 +1095,7 @@ export class PutTicketsService {
                 return { message: `Nota agregada correctamente al Ticket ${updatedTicket.Id}.` };
             }
             const channel = "channel_notas";
-            if (correoData.destinatario !== "standby@standby.com") {
+            if (correoData.destinatario !== process.env.CORREOMESA_TEST) {
                 try {
                     const correo = await this.correoService.enviarCorreo(correoData, channel, token);
                     if (correo) {
@@ -1127,6 +1130,8 @@ export class PutTicketsService {
     };
     async marcarTicketPendiente(_id: string, user: { userId: string; nombre: string }, cuerpoCorreo: string, emails_extra: string[], files: Express.Multer.File[], token: string,): Promise<{ message: string; }> {
         console.log("extra", emails_extra);
+        const rawEmailsExtra = emails_extra as string | string[] | undefined;
+        let emailsArray: string[] = [];
         try {
             const resultEstado = await this.getticketsService.getIdEstadoTicket('PENDIENTES');
 
@@ -1164,12 +1169,19 @@ export class PutTicketsService {
 
             const formData = new FormData();
 
+            if (Array.isArray(rawEmailsExtra)) {
+                emailsArray = rawEmailsExtra.map(email => email.trim());
+            } else if (typeof rawEmailsExtra === 'string' && rawEmailsExtra.trim() !== '') {
+                emailsArray = [rawEmailsExtra.trim()];
+            }
+
             const correoData = {
                 Id: result.Id,
-                destinatario: cliente.Correo,
-                emails_extra: emails_extra !== undefined ? emails_extra : <string[]>[],
+                destinatario: process.env.CORREOMESA_TEST,
+                emails_extra: [...emailsArray, cliente.Correo],
                 details: cuerpoCorreo,
             };
+            console.log(correoData);
 
             formData.append('correoData', JSON.stringify(correoData));
 
