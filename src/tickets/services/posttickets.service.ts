@@ -1,7 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+    BadRequestException,
+    Injectable,
+    InternalServerErrorException,
+} from '@nestjs/common';
 import { Estado } from 'src/schemas/estados.schema';
 import { Ticket } from 'src/schemas/ticket.schema';
-import { Usuario } from 'src/schemas/usuarios.schema';
 import { GetTicketsService } from './gettickets.service';
 import { calcularFechaResolucion } from 'src/common/utils/calcularFechaResolucion';
 import { fechaDefecto, obtenerFechaActual } from 'src/common/utils/fechas';
@@ -10,19 +13,25 @@ import { historicoCreacion } from 'src/common/utils/historico';
 import { guardarArchivos } from 'src/common/utils/guardarArchivos';
 import { UserService } from './user.service';
 import { ClienteService } from './cliente.service';
-import { Clientes } from 'src/schemas/cliente.schema';
 import { CorreoService } from './correos.service';
-import { channel } from 'diagnostics_channel';
 import { CounterService } from './counter.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Model, Connection, ClientSession, Types } from 'mongoose';
 import { validarRol } from 'src/common/utils/validacionRolUsuario';
 import { LogsService } from './logs.service';
 import { FilaCorreosService } from './filacorreos.service';
+import { Area } from 'src/schemas/area.schema';
+import { Dependencia } from 'src/schemas/dependencia.schema';
+import { DireccionGeneral } from 'src/schemas/direccion_general.schema';
+import { DireccionArea } from 'src/schemas/direccionarea.schema';
+import { Medio } from 'src/schemas/mediocontacto.schema';
+import { Puesto } from 'src/schemas/puestos.schema';
+import { NotificationGateway } from 'src/notifications/notification/notification.gateway';
 
 @Injectable()
 export class PostTicketsService {
     constructor(
+        private readonly gateway: NotificationGateway,
         private readonly getticketsService: GetTicketsService,
         private readonly userService: UserService,
         private readonly clienteService: ClienteService,
@@ -33,6 +42,15 @@ export class PostTicketsService {
         @InjectConnection() private readonly connection: Connection,
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
+        @InjectModel(Area.name) private readonly areaModel: Model<Area>,
+        @InjectModel(Dependencia.name)
+        private readonly dependenciaModel: Model<Dependencia>,
+        @InjectModel(DireccionGeneral.name)
+        private readonly direcciongeneralModel: Model<DireccionGeneral>,
+        @InjectModel(DireccionArea.name)
+        private readonly direccionAreaModel: Model<DireccionArea>,
+        @InjectModel(Medio.name) private readonly medioModel: Model<Medio>,
+        @InjectModel(Puesto.name) private readonly puestoModel: Model<Puesto>,
     ) { }
     async crearTicket(dto: any, user: any, token: string, files: any): Promise<{ message: string; }> {
         const session: ClientSession = await this.connection.startSession();
@@ -43,11 +61,15 @@ export class PostTicketsService {
             //1.-Verificar el asignado
             const dtoAsignado = await this.userService.verificarAsignado(dto);
             //3.- Obtener información con la subcategoria
-            const Categorizacion = await this.getticketsService.getCategorizacion(new Types.ObjectId(dto.Subcategoria));
+            const Categorizacion = await this.getticketsService.getCategorizacion(
+                new Types.ObjectId(dto.Subcategoria),
+            );
             //4.- Calcular las fechas
             const Fecha_limite = calcularFechaResolucion(dto.Tiempo);
             //5.- Obtencion del asignado
-            const asignado = await this.userService.getUsuario(dtoAsignado.Asignado_a);
+            const asignado = await this.userService.getUsuario(
+                dtoAsignado.Asignado_a,
+            );
             const rolAsignado = await this.userService.getRolAsignado(asignado?._id);
             //2.- Verificar estado segun el asignado
             const Estado = await this.getticketsService.getestadoTicket(rolAsignado);
@@ -55,8 +77,11 @@ export class PostTicketsService {
             const cliente = await this.clienteService.getCliente(dto.Cliente);
             //5.- LLenado del hostorico
             const Historia_ticket = await historicoCreacion(user, asignado);
-            const RolModerador = await this.userService.getRolModerador("Moderador");
-            const Moderador = await this.userService.getModeradorPorAreayRol(asignado?.Area, RolModerador);
+            const RolModerador = await this.userService.getRolModerador('Moderador');
+            const Moderador = await this.userService.getModeradorPorAreayRol(
+                asignado?.Area,
+                RolModerador,
+            );
             const Id = await this.counterService.getNextSequence('Id');
             let data = {
                 Cliente: new Types.ObjectId(dto.Cliente),
@@ -77,7 +102,7 @@ export class PostTicketsService {
                 Historia_ticket: Historia_ticket,
                 Id: Id,
             };
-            // Agregar `Asignado_a o Reasignado_a segun el rol` 
+            // Agregar `Asignado_a o Reasignado_a segun el rol`
             const propiedadesRol = await validarRol(rolAsignado, Moderador, dto);
             // Agregar dinámicamente las propiedades al objeto `updateData.$set`
             data = {
@@ -87,24 +112,39 @@ export class PostTicketsService {
             //6.- Se guarda el ticket
             let ticketInstance = new this.ticketModel(data);
             const savedTicket = await ticketInstance.save({ session });
-            console.log("ticket guardado", savedTicket);
-            if (!savedTicket) { throw new BadRequestException('No se creó el ticket.'); }
-            console.log("Ticket guardado correctamente");
+            console.log('ticket guardado', savedTicket);
+            if (!savedTicket) {
+                throw new BadRequestException('No se creó el ticket.');
+            }
+            console.log('Ticket guardado correctamente');
             //7.- Se valida si el ticket se guardo correctamente y si hay archivos para guardar
             if (files.length > 0) {
-                console.log("Ticket guardado:", savedTicket._id);
+                console.log('Ticket guardado:', savedTicket._id);
                 const { data: uploadedFiles } = await guardarArchivos(token, files);
-                if (uploadedFiles) { console.log("Se guradaron los archivos"); }
+                if (uploadedFiles) {
+                    console.log('Se guradaron los archivos');
+                }
                 const updatedTicket = await this.ticketModel.findByIdAndUpdate(
                     ticketInstance._id, // ✅ usa solo el ID aquí (puede ser string o ObjectId)
-                    { $push: { Files: { $each: uploadedFiles.map((file) => ({ ...file, _id: new Types.ObjectId() })) } } },
-                    { new: true, upsert: false, session, }
+                    {
+                        $push: {
+                            Files: {
+                                $each: uploadedFiles.map((file) => ({
+                                    ...file,
+                                    _id: new Types.ObjectId(),
+                                })),
+                            },
+                        },
+                    },
+                    { new: true, upsert: false, session },
                 );
 
                 if (!updatedTicket) {
-                    throw new BadRequestException('No se encontró el ticket para actualizar archivos.');
+                    throw new BadRequestException(
+                        'No se encontró el ticket para actualizar archivos.',
+                    );
                 }
-                console.log("Archivos guardados correctamente");
+                console.log('Archivos guardados correctamente');
                 ticketInstance = updatedTicket;
             }
             //8.- Se genera el correoData
@@ -112,7 +152,7 @@ export class PostTicketsService {
                 (savedTicket.Reasignado_a && savedTicket.Reasignado_a.length > 0
                     ? savedTicket.Reasignado_a[0]
                     : savedTicket.Asignado_a[0]
-                ).toString()
+                ).toString(),
             );
             let correoData = {
                 Id: savedTicket.Id,
@@ -126,11 +166,15 @@ export class PostTicketsService {
                 area: cliente?.direccion_area?.direccion_area,
             };
             //9.- Enviar correos
-            const channel = "channel_crearTicket";
+            const channel = 'channel_crearTicket';
             try {
-                const correo = await this.correoService.enviarCorreo(correoData, channel, token);
+                const correo = await this.correoService.enviarCorreo(
+                correoData,
+                channel,
+                token,
+            );
                 if (correo) {
-                    console.log("Mensaje enviado al email service");
+                    console.log('Mensaje enviado al email service');
                     const savedlog = await this.logsService.successCorreoTicket(savedTicket.Id, "creado", correoData.destinatario || "desconocido", correoData.emails_extra as string[]);  //Se necesita el Id, la acción y el destinatario
                 }
             } catch (correoError) {
@@ -159,5 +203,99 @@ export class PostTicketsService {
         } finally {
             session.endSession(); // ✅ Siempre se cierra aquí, una sola vez
         }
-    };
-}; 
+    }
+
+    async createAreas(Area: string) {
+        try {
+            const nuevaArea = await this.areaModel.create({ Area });
+            if (!nuevaArea)
+                throw new BadRequestException('Ocurrio un error al crear el área');
+            return { message: 'El área se creó de manera correcta' };
+        } catch (error) {
+            throw new InternalServerErrorException(
+                'Ocurrió un error al crear el área: Error interno en el servidor.',
+            );
+        }
+    }
+
+    async createDependencias(Dependencia: string) {
+        try {
+            const nuevaDependencia = await this.dependenciaModel.create({
+                Dependencia,
+            });
+            if (!nuevaDependencia)
+                throw new BadRequestException(
+                    'Ocurrio un error al crear la dependencia',
+                );
+            return { message: 'La dependencia se creó de manera correcta' };
+        } catch (error) {
+            throw new InternalServerErrorException(
+                'Ocurrió un error al crear la dependencia: Error interno en el servidor.',
+            );
+        }
+    }
+
+    async createDGenerales(Direccion_General: string) {
+        try {
+            const nuevaDGeneral = await this.direcciongeneralModel.create({
+                Direccion_General,
+            });
+            if (!nuevaDGeneral)
+                throw new BadRequestException(
+                    'Ocurrio un error al crear la Direccion General',
+                );
+            return { message: 'La direccion general se creó de manera correcta' };
+        } catch (error) {
+            throw new InternalServerErrorException(
+                'Ocurrió un error al crear la direccion general: Error interno en el servidor.',
+            );
+        }
+    }
+
+    async createDAreas(direccion_area: string) {
+        try {
+            const nuevaDArea = await this.direccionAreaModel.create({
+                direccion_area,
+            });
+            if (!nuevaDArea)
+                throw new BadRequestException(
+                    'Ocurrio un error al crear la Direccion de área',
+                );
+            return { message: 'La direccion de área se creó de manera correcta' };
+        } catch (error) {
+            throw new InternalServerErrorException(
+                'Ocurrió un error al crear la direccion de área: Error interno en el servidor.',
+            );
+        }
+    }
+
+    async createMedios(Medio: string) {
+        try {
+            const medio = await this.medioModel.create({ Medio });
+            if (!medio)
+                throw new BadRequestException(
+                    'Ocurrio un error al crear el medio de contacto',
+                );
+            return { message: 'El medio de contacto se creó de manera correcta' };
+        } catch (error) {
+            throw new InternalServerErrorException(
+                'Ocurrió un error al crear el medio de contacto: Error interno en el servidor.',
+            );
+        }
+    }
+
+    async createPuestos(Puesto: string) {
+        try {
+            const puesto = await this.puestoModel.create({ Puesto });
+            if (!puesto)
+                throw new BadRequestException(
+                    'Ocurrio un error al crear el puesto de trabajo',
+                );
+            return { message: 'El puesto de trabajo se creó de manera correcta' };
+        } catch (error) {
+            throw new InternalServerErrorException(
+                'Ocurrió un error al crear el puesto de trabajo: Error interno en el servidor.',
+            );
+        }
+    }
+}

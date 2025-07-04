@@ -29,6 +29,9 @@ import { Logs, LogsSchema } from 'src/schemas/log.schema';
 import { LogsService } from './services/logs.service';
 import { FilaCorreosService } from './services/filacorreos.service';
 import { Filacorreos, FilaCorreosSchema } from 'src/schemas/filacorreos.schema';
+import { Celula, CelulaSchema } from 'src/schemas/celula.schema';
+import { Puesto, PuestoSchema } from 'src/schemas/puestos.schema';
+import { NotificationGateway } from 'src/notifications/notification/notification.gateway';
 
 const mongooseSchemas = [
   { name: Ticket.name, schema: TicketSchema },
@@ -50,6 +53,8 @@ const mongooseSchemas = [
   { name: Counter.name, schema: CounterSchema },
   { name: Logs.name, schema: LogsSchema },
   { name: Filacorreos.name, schema: FilaCorreosSchema},
+  { name: Celula.name, schema: CelulaSchema },
+  { name: Puesto.name, schema: PuestoSchema },
 ];
 @Module({
   imports: [MongooseModule.forFeature(mongooseSchemas)],
@@ -63,7 +68,8 @@ const mongooseSchemas = [
     CounterService,
     LogsService,
     FilaCorreosService
-  ],
-  controllers: [TicketsController]
+ , NotificationGateway],
+  controllers: [TicketsController],
+  exports: [GetTicketsService]
 })
 export class TicketsModule { };
