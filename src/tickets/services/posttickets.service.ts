@@ -89,7 +89,7 @@ export class PostTicketsService {
                 Subcategoria: new Types.ObjectId(dto.Subcategoria),
                 Descripcion: dto.Descripcion,
                 NumeroRec_Oficio: dto.NumeroRec_Oficio,
-                Creado_por: new Types.ObjectId(user.UserId),
+                Creado_por: new Types.ObjectId(user.userId),
                 Estado: Estado,
                 Area: Categorizacion?.Equipo,
                 Fecha_hora_creacion: obtenerFechaActual(),
@@ -169,18 +169,18 @@ export class PostTicketsService {
             const channel = 'channel_crearTicket';
             try {
                 const correo = await this.correoService.enviarCorreo(
-                correoData,
-                channel,
-                token,
-            );
+                    correoData,
+                    channel,
+                    token,
+                );
                 if (correo) {
                     console.log('Mensaje enviado al email service');
-                    const savedlog = await this.logsService.successCorreoTicket(savedTicket.Id, "creado", correoData.destinatario || "desconocido", correoData.emails_extra as string[]);  //Se necesita el Id, la acción y el destinatario
+                    const savedlog = await this.logsService.enviarLog(correoData, "successCorreoTicket", token, "creado");
                 }
             } catch (correoError) {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
-                const savedlog = await this.logsService.errorCorreo(savedTicket.Id, "creado", correoData.destinatario || "desconocido", correoData.emails_extra as string[]);
+                const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "creado");
                 const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
                 await session.commitTransaction();
                 committed = true;
@@ -198,7 +198,7 @@ export class PostTicketsService {
             if (!committed) {
                 await session.abortTransaction(); // ✅ Solo abortar si no se hizo commit
             }
-            await this.logsService.genericLog("❌ Error al crear el Ticket.");
+            await this.logsService.enviarLog({ message: "❌ Error al crear el Ticket." }, "genericLog", token);
             throw new BadRequestException("❌ Error al crear el Ticket.");
         } finally {
             session.endSession(); // ✅ Siempre se cierra aquí, una sola vez
