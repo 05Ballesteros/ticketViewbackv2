@@ -31,7 +31,7 @@ import { FilaCorreosService } from './services/filacorreos.service';
 import { Filacorreos, FilaCorreosSchema } from 'src/schemas/filacorreos.schema';
 import { Celula, CelulaSchema } from 'src/schemas/celula.schema';
 import { Puesto, PuestoSchema } from 'src/schemas/puestos.schema';
-import { NotificationGateway } from 'src/notifications/notification/notification.gateway';
+import { RedisService } from 'src/redis/redis.service';
 
 const mongooseSchemas = [
   { name: Ticket.name, schema: TicketSchema },
@@ -52,7 +52,7 @@ const mongooseSchemas = [
   { name: DireccionArea.name, schema: DireccionAreaSchema },
   { name: Counter.name, schema: CounterSchema },
   { name: Logs.name, schema: LogsSchema },
-  { name: Filacorreos.name, schema: FilaCorreosSchema},
+  { name: Filacorreos.name, schema: FilaCorreosSchema },
   { name: Celula.name, schema: CelulaSchema },
   { name: Puesto.name, schema: PuestoSchema },
 ];
@@ -67,8 +67,9 @@ const mongooseSchemas = [
     PutTicketsService,
     CounterService,
     LogsService,
-    FilaCorreosService
- , NotificationGateway],
+    FilaCorreosService,
+    RedisService,
+  ],
   controllers: [TicketsController],
   exports: [GetTicketsService]
 })

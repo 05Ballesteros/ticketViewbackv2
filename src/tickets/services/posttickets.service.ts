@@ -26,12 +26,12 @@ import { DireccionGeneral } from 'src/schemas/direccion_general.schema';
 import { DireccionArea } from 'src/schemas/direccionarea.schema';
 import { Medio } from 'src/schemas/mediocontacto.schema';
 import { Puesto } from 'src/schemas/puestos.schema';
-import { NotificationGateway } from 'src/notifications/notification/notification.gateway';
+import { RedisService } from 'src/redis/redis.service';
+import { generateNotification } from 'src/common/utils/generateNotificacion';
 
 @Injectable()
 export class PostTicketsService {
     constructor(
-        private readonly gateway: NotificationGateway,
         private readonly getticketsService: GetTicketsService,
         private readonly userService: UserService,
         private readonly clienteService: ClienteService,
@@ -39,6 +39,7 @@ export class PostTicketsService {
         private readonly counterService: CounterService,
         private readonly logsService: LogsService,
         private readonly filacorreosService: FilaCorreosService,
+        private readonly redisService: RedisService,
         @InjectConnection() private readonly connection: Connection,
         @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
         @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
@@ -52,7 +53,12 @@ export class PostTicketsService {
         @InjectModel(Medio.name) private readonly medioModel: Model<Medio>,
         @InjectModel(Puesto.name) private readonly puestoModel: Model<Puesto>,
     ) { }
-    async crearTicket(dto: any, user: any, token: string, files: any): Promise<{ message: string; }> {
+    async crearTicket(
+        dto: any,
+        user: any,
+        token: string,
+        files: any,
+    ): Promise<{ message: string }> {
         const session: ClientSession = await this.connection.startSession();
         let committed = false; // ✅ Bandera
 
@@ -89,7 +95,7 @@ export class PostTicketsService {
                 Subcategoria: new Types.ObjectId(dto.Subcategoria),
                 Descripcion: dto.Descripcion,
                 NumeroRec_Oficio: dto.NumeroRec_Oficio,
-                Creado_por: new Types.ObjectId(user.UserId),
+                Creado_por: new Types.ObjectId(user.userId),
                 Estado: Estado,
                 Area: Categorizacion?.Equipo,
                 Fecha_hora_creacion: obtenerFechaActual(),
@@ -154,10 +160,13 @@ export class PostTicketsService {
                     : savedTicket.Asignado_a[0]
                 ).toString(),
             );
-            let correoData = {
+            const correoData = {
                 Id: savedTicket.Id,
                 destinatario: cliente?.Correo,
-                emails_extra: Usuario?.Correo === "standby@standby.com" ? <string[]>[] : Usuario?.Correo,
+                emails_extra:
+                    Usuario?.Correo === 'standby@standby.com'
+                        ? <string[]>[]
+                        : Usuario?.Correo,
                 details: savedTicket.Descripcion,
                 nombre: cliente?.Nombre,
                 extension: cliente?.Extension,
@@ -169,19 +178,37 @@ export class PostTicketsService {
             const channel = 'channel_crearTicket';
             try {
                 const correo = await this.correoService.enviarCorreo(
-                correoData,
-                channel,
-                token,
-            );
+                    correoData,
+                    channel,
+                    token,
+                );
                 if (correo) {
                     console.log('Mensaje enviado al email service');
-                    const savedlog = await this.logsService.successCorreoTicket(savedTicket.Id, "creado", correoData.destinatario || "desconocido", correoData.emails_extra as string[]);  //Se necesita el Id, la acción y el destinatario
+                    const savedlog = await this.logsService.successCorreoTicket(
+                        savedTicket.Id,
+                        'creado',
+                        correoData.destinatario || 'desconocido',
+                        correoData.emails_extra as string[],
+                    ); //Se necesita el Id, la acción y el destinatario
                 }
             } catch (correoError) {
-                const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
-                console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
-                const savedlog = await this.logsService.errorCorreo(savedTicket.Id, "creado", correoData.destinatario || "desconocido", correoData.emails_extra as string[]);
-                const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
+                const EstadoCorreo =
+                    await this.getticketsService.getEstado('PENDIENTES');
+                console.warn(
+                    'No se pudo enviar el correo. Se guardará en la fila. Error:',
+                    correoError.message,
+                );
+                const savedlog = await this.logsService.errorCorreo(
+                    savedTicket.Id,
+                    'creado',
+                    correoData.destinatario || 'desconocido',
+                    correoData.emails_extra as string[],
+                );
+                const savedCorreo = await this.filacorreosService.agregarCorreo(
+                    correoData,
+                    channel,
+                    EstadoCorreo as Types.ObjectId,
+                );
                 await session.commitTransaction();
                 committed = true;
                 return {
@@ -190,6 +217,17 @@ export class PostTicketsService {
             }
             await session.commitTransaction();
             committed = true;
+
+            await generateNotification(
+                this.redisService,
+                [
+                    savedTicket.Asignado_a,
+                ],
+                savedTicket.Id,
+                `Se ha creado el Ticket #${savedTicket.Id}.`,
+                'Ticket Creado',
+            );
+
             return {
                 message: `Ticket ${savedTicket.Id} creado correctamente.`,
             };
@@ -198,8 +236,8 @@ export class PostTicketsService {
             if (!committed) {
                 await session.abortTransaction(); // ✅ Solo abortar si no se hizo commit
             }
-            await this.logsService.genericLog("❌ Error al crear el Ticket.");
-            throw new BadRequestException("❌ Error al crear el Ticket.");
+            await this.logsService.genericLog('❌ Error al crear el Ticket.');
+            throw new BadRequestException('❌ Error al crear el Ticket.');
         } finally {
             session.endSession(); // ✅ Siempre se cierra aquí, una sola vez
         }
