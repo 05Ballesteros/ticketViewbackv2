@@ -1435,10 +1435,6 @@ export class PutTicketsService {
                 try {
                     const correo = await this.correoService.enviarCorreo(correoData, channel, token);
                     if (correo) {
-                        console.log("Mensaje enviado al email service");
-                        this.gateway.sendNotification(
-                            `📝 Nueva nota agregada al ticket ${updatedTicket.Id}`
-                        );
                         const savedlog = await this.logsService.enviarLog(correoData, "successCorreoTicket", token, "nota agregada");
                     }
                 } catch (correoError) {
