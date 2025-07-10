@@ -42,6 +42,9 @@ export class Filacorreos extends Document {
   @Prop({ type: Date })
   Fecha_hora_agregado: Date;
 
+  @Prop({ type: String })
+  motivo: string;
+
   @Prop({ type: [Object] })
   attachments: object[];
 }

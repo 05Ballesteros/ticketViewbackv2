@@ -51,6 +51,7 @@ import { RedisService } from 'src/redis/redis.service';
 import {
     generateNotification
 } from 'src/common/utils/generateNotificacion';
+import { NotificationGateway } from 'src/notifications/notification.gateway';
 
 @Injectable()
 export class PutTicketsService {
@@ -139,7 +140,9 @@ export class PutTicketsService {
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     Estado: new Types.ObjectId(Estado),
                     standby: false,
-                    areaAsignado,
+                    AreaTicket: areaAsignado && Array.isArray(areaAsignado)
+                        ? areaAsignado.map(area => area._id)
+                        : [],
                 },
                 $unset: {
                     PendingReason: '',
@@ -206,6 +209,7 @@ export class PutTicketsService {
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
                 emails_extra: <string[]>[],
+                motivo: "",
             };
 
             try {
@@ -218,6 +222,7 @@ export class PutTicketsService {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
                 const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "asignado");
+                correoData.motivo = "Error de envío: asignación de ticket.";
                 const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, "channel_asignarTicket", EstadoCorreo as Types.ObjectId);
                 return {
                     message: `Ticket ${updatedTicket.Id} asignado correctamente, correo agregado a la fila.`,
@@ -293,7 +298,6 @@ export class PutTicketsService {
             }
             //2.- Agregar la historia
             const { Cliente, Nota, ...filteredTicketData } = reasignado; //Se hace para excluir el cliente y que no se guarde como string
-            console.log('filteredTicketData', filteredTicketData);
             const Historia_ticket = await historicoReasignacion(user, Usuario);
             const Nota_ticket = await historicoNota(user, reasignado);
             console.log(' historico y nota', Historia_ticket, Nota_ticket);
@@ -303,7 +307,9 @@ export class PutTicketsService {
                     ...filteredTicketData,
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     vistoBueno: reasignado.vistoBueno,
-                    areaReasignado,
+                    AreaTicket: areaReasignado && Array.isArray(areaReasignado)
+                        ? areaReasignado.map(area => area._id)
+                        : [],
                 },
                 $push: {
                     Historia_ticket: {
@@ -371,6 +377,7 @@ export class PutTicketsService {
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
                 emails_extra: <string[]>[],
+                motivo: "",
             };
             const channel = 'channel_reasignarTicket';
             try {
@@ -386,6 +393,7 @@ export class PutTicketsService {
             } catch (correoError) {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
+                correoData.motivo = "Error de envío: reasignación de ticket.";
                 const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "reasignado");
                 const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
                 return {
@@ -443,6 +451,7 @@ export class PutTicketsService {
                 throw new BadRequestException('Estado no encontrado.');
             }
             //4.- Agregar la historia
+            console.log("areaAsignado", areaAsignado);
             const Historia_ticket = await historicoReabrir(user, ticketData);
             // Crear datos para el ticket
             const updateData: any = {
@@ -450,7 +459,9 @@ export class PutTicketsService {
                     ...ticketData,
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     Estado: new Types.ObjectId(Estado),
-                    areaAsignado,
+                    AreaTicket: areaAsignado && Array.isArray(areaAsignado)
+                        ? areaAsignado.map(area => area._id)
+                        : [],
                 },
                 $unset: {
                     PendingReason: "",
@@ -519,6 +530,7 @@ export class PutTicketsService {
                 telefono: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
+                motivo: "",
             };
             const channel = 'channel_reabrirTicket';
             try {
@@ -535,6 +547,7 @@ export class PutTicketsService {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
                 const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "reabierto");
+                correoData.motivo = "Error de envío: reapertura de ticket.";
                 const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
                 return {
                     message: `Ticket ${updatedTicket.Id} reabierto correctamente, correo agregado a la fila.`,
@@ -570,11 +583,20 @@ export class PutTicketsService {
         try {
             // Declarar variables
             let Estado: any | null = null;
+            let asignado: Types.ObjectId[];
+            let areaAsignado: Types.ObjectId[];
+
             // 1.- Obtener datos necesarios para actualizar el ticket
             if (user.rol === "Usuario" && ticketData.vistoBueno === "true") {
                 Estado = await this.getticketsService.getEstado("REVISION");
+                asignado = await this.getticketsService.getAsignado(id);
+                areaAsignado = await this.userService.getareaAsignado(asignado);
+                console.log("Areas de asignado", areaAsignado);
             } else {
+                //Campos de mesa
                 Estado = await this.getticketsService.getEstado('RESUELTOS');
+                areaAsignado = await this.userService.getAreaMesa();
+                console.log("Areas de mesa", areaAsignado);
             }
             // 2.- Validar cuál estado asignar al ticket
             if (!Estado) {
@@ -593,6 +615,9 @@ export class PutTicketsService {
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     Estado: new Types.ObjectId(Estado),
                     Resuelto_por: new Types.ObjectId(user.userId),
+                    AreaTicket: areaAsignado && Array.isArray(areaAsignado)
+                        ? areaAsignado.map(area => area._id)
+                        : [],
                 },
                 $push: {
                     Historia_ticket: { $each: Historia_ticket },
@@ -661,6 +686,7 @@ export class PutTicketsService {
         ticketData: any,
         user: any,
         id: string,
+        token: string,
     ): Promise<{ message: string }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
@@ -677,6 +703,7 @@ export class PutTicketsService {
                 throw new BadRequestException('Estado no encontrado.');
             }
             //3.- Agregar la historia
+            const areaMesa = await this.userService.getAreaMesa();
             const Historia_ticket = await historicoAceptarSolucion(user, ticketData);
             // Crear datos para el ticket
             const updateData: any = {
@@ -684,6 +711,9 @@ export class PutTicketsService {
                     Estado,
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     vistoBueno: false,
+                    AreaTicket: areaMesa && Array.isArray(areaMesa)
+                        ? areaMesa.map(area => area._id)
+                        : [],
                 },
                 $push: {
                     Historia_ticket: { $each: Historia_ticket },
@@ -720,11 +750,12 @@ export class PutTicketsService {
                 'Revisión de ticket aceptada',
             );
             //Se valida a quien se va enviar el correo de asignación
+            await this.logsService.enviarLog({ message: `Solución aceptada para el ticket ${updatedTicket.Id}.` }, "genericLog", token);
             return {
                 message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
             };
         } catch (error) {
-            console.error('Error al aceptar solución:', error.message);
+            await this.logsService.enviarLog({ message: `Error al aceptar solución.` }, "genericLog", token);
             throw new BadRequestException('Error interno del servidor.');
         }
     }
@@ -751,11 +782,15 @@ export class PutTicketsService {
             }
             //3.- Agregar la historia
             const Historia_ticket = await historicoRechazarSolucion(user, ticketData);
+            const areaAsignado = await this.userService.getareaAsignado(ticketData.Reasignado_a);
             // Crear datos para el ticket
             const updateData: any = {
                 $set: {
                     Estado,
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
+                    AreaTicket: areaAsignado && Array.isArray(areaAsignado)
+                        ? areaAsignado.map(area => area._id)
+                        : [],
                 },
                 $unset: {
                     Resuelto_por: '',
@@ -811,11 +846,12 @@ export class PutTicketsService {
                 `Tu resolución para el Ticket #${updatedTicket.Id} fué rechazada. Puedes validar los motivos en la historia del ticket.`,
                 'Revisión de ticket rechazada',
             );
+            await this.logsService.enviarLog({ message: `Solución rechazada para el ticket ${updatedTicket.Id}.` }, "genericLog", token);
             return {
                 message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
             };
         } catch (error) {
-            console.error('Error al rechazar solución:', error.message);
+            await this.logsService.enviarLog({ message: `Error al rechazar solución.` }, "genericLog", token);
             throw new BadRequestException('Error interno del servidor.');
         }
     }
@@ -901,6 +937,7 @@ export class PutTicketsService {
             const correoData = {
                 Id: updatedTicket.Id,
                 details: ticketData.descripcion_retorno,
+                motivo: "",
             };
             const channel = 'channel_regresarTicketMesa';
             try {
@@ -919,6 +956,7 @@ export class PutTicketsService {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
                 const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "devuelto a mesa de servicio");
+                correoData.motivo = "Error de envío: regresar ticket a mesa.";
                 const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
                 return {
                     message: `Ticket ${updatedTicket.Id} devuelto a mesa de servicio correctamente, correo agregado a la fila.`,
@@ -1030,6 +1068,7 @@ export class PutTicketsService {
                 ), //Moderador
                 details: ticketData.descripcion_retorno,
                 emails_extra: <string[]>[],
+                motivo: "",
             };
             const channel = 'channel_regresarTicketModerador';
             try {
@@ -1046,6 +1085,7 @@ export class PutTicketsService {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
                 const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "devuelto a moderador");
+                correoData.motivo = "Error de envío: regresar ticket a moderador.";
                 const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
                 return {
                     message: `Ticket ${updatedTicket.Id} devuelto a moderador correctamente, correo agregado a la fila.`,
@@ -1096,9 +1136,15 @@ export class PutTicketsService {
                 user,
                 ticketData,
             );
+            const areaReasignado = await this.userService.getareaAsignado(ticketData.Reasignado_a);
             // Crear datos para el ticket
             const updateData: any = {
-                $set: { Estado, Fecha_hora_ultima_modificacion: obtenerFechaActual() },
+                $set: {
+                    Estado, Fecha_hora_ultima_modificacion: obtenerFechaActual(),
+                    AreaTicket: areaReasignado && Array.isArray(areaReasignado)
+                        ? areaReasignado.map(area => area._id)
+                        : [],
+                },
                 $push: { Historia_ticket: { $each: Historia_ticket } },
             };
             //4.- Actualizar el ticket
@@ -1146,8 +1192,9 @@ export class PutTicketsService {
                 destinatario: Usuario?.Correo,
                 details: ticketData.Descripcion_respuesta_cliente,
                 emails_extra: <string[]>[],
+                motivo: "",
             };
-
+            
             const channel = 'channel_regresarTicketResolutor';
             try {
                 const correo = await this.correoService.enviarCorreo(
@@ -1163,6 +1210,7 @@ export class PutTicketsService {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
                 const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "devuelto a resolutor");
+                correoData.motivo = "Error de envío: regresar ticket a resolutor.";
                 const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
                 return {
                     message: `Ticket ${updatedTicket.Id} devuelto a resolutor correctamente, correo agregado a la fila.`,
@@ -1209,6 +1257,7 @@ export class PutTicketsService {
             }
             //2.- Agregar la historia
             const Historia_ticket = await historicoCerrar(user, ticketData);
+            const areaResolutor = await this.userService.getareaAsignado(ticketData.Resuelto_por);
             //3.- Crear datos para el ticket
             const updateData: any = {
                 $set: {
@@ -1216,6 +1265,9 @@ export class PutTicketsService {
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     Cerrado_por: new Types.ObjectId(user.userId),
                     Estado: new Types.ObjectId(Estado),
+                    AreaTicket: areaResolutor && Array.isArray(areaResolutor)
+                        ? areaResolutor.map(area => area._id)
+                        : [],
                 },
                 $push: {
                     Historia_ticket: { $each: Historia_ticket },
@@ -1265,18 +1317,19 @@ export class PutTicketsService {
                 destinatario: cliente.Correo,
                 details: ticketData.Descripcion_cierre,
                 emails_extra: <string[]>[],
+                motivo: "",
             };
             console.log('correoData', correoData);
-
+            
             formData.append('correoData', JSON.stringify(correoData));
-
+            
             if (files.length > 0) {
                 files.forEach((file) => {
                     const buffer = fs.readFileSync(file.path);
                     formData.append('files', buffer, file.originalname);
                 });
             }
-
+            
             try {
                 const correo = await this.correoService.enviarCorreoHTTP(
                     formData,
@@ -1302,6 +1355,7 @@ export class PutTicketsService {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
                 const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "cerrado");
+                correoData.motivo = "Error de envío: cierre de ticket.";
                 const savedCorreo = await this.filacorreosService.agregarCorreoHTTP(correoData, "cerrar", EstadoCorreo as Types.ObjectId, uploadedFiles);
                 return {
                     message: `Ticket ${updatedTicket.Id} cerrado correctamente, correo agregado a la fila.`,
@@ -1420,8 +1474,9 @@ export class PutTicketsService {
                 destinatario: destinatario,
                 emails_extra,
                 details: ticketData.Nota,
+                motivo: "",
             };
-
+            
             if (!destinatario) {
                 console.warn('No hay destinatarios válidos para enviar el correo.');
                 await session.abortTransaction();
@@ -1440,6 +1495,7 @@ export class PutTicketsService {
                 } catch (correoError) {
                     const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                     const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "nota agregada");
+                    correoData.motivo = "Error de envío: agregar nota.";
                     const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
                     return {
                         message: ` Nota agregada correctamente al Ticket ${updatedTicket.Id}, correo agregado a la fila.`,
@@ -1473,7 +1529,6 @@ export class PutTicketsService {
         }
     };
     async marcarTicketPendiente(_id: string, user: { userId: string; nombre: string }, cuerpoCorreo: string, emails_extra: string[], files: Express.Multer.File[], token: string,): Promise<{ message: string; }> {
-        console.log("extra", emails_extra);
         const rawEmailsExtra = emails_extra as string | string[] | undefined;
         let emailsArray: string[] = [];
         try {
@@ -1485,11 +1540,16 @@ export class PutTicketsService {
             }
 
             const { userId, nombre } = user;
-
+            const areaMesa = await this.userService.getAreaMesa();
             const result = await this.ticketModel.findOneAndUpdate(
                 { _id },
                 {
-                    $set: { Estado: resultEstado._id },
+                    $set: {
+                        Estado: resultEstado._id,
+                        AreaTicket: areaMesa && Array.isArray(areaMesa)
+                            ? areaMesa.map(area => area._id)
+                            : [],
+                    },
                     $push: {
                         Historia_ticket: {
                             Nombre: userId,
@@ -1529,18 +1589,18 @@ export class PutTicketsService {
                 destinatario: process.env.CORREOMESA_TEST,
                 emails_extra: [...emailsArray, cliente.Correo],
                 details: cuerpoCorreo,
+                motivo: "",
             };
-            console.log(correoData);
-
+            
             formData.append('correoData', JSON.stringify(correoData));
-
+            
             if (files.length > 0) {
                 files.forEach((file) => {
                     const buffer = fs.readFileSync(file.path);
                     formData.append('files', buffer, file.originalname);
                 });
             }
-
+            
             try {
                 const correo = await this.correoService.enviarCorreoHTTP(formData, 'pendiente', _id, token);
                 console.log("Mensaje enviado al email service");
@@ -1559,6 +1619,8 @@ export class PutTicketsService {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
                 const savedlog = await this.logsService.enviarLog(correoData, "errorPendiente", token);
+                correoData.motivo = "Error de envío: marcar ticket pendiente.";
+                console.log("uploadedFiles", uploadedFiles);
                 const savedCorreo = await this.filacorreosService.agregarCorreoHTTP(correoData, "pendiente", EstadoCorreo as Types.ObjectId, uploadedFiles);
                 return {
                     message: `Ticket ${result.Id} pendiente, correo agregado a la fila.`,
@@ -1620,17 +1682,18 @@ export class PutTicketsService {
                 destinatario: cliente.Correo,
                 emails_extra,
                 details: cuerpoCorreo,
+                motivo: "",
             };
             console.log('CorreoData', correoData);
             formData.append('correoData', JSON.stringify(correoData));
-
+            
             if (files.length > 0) {
                 files.forEach((file) => {
                     const buffer = fs.readFileSync(file.path);
                     formData.append('files', buffer, file.originalname);
                 });
             }
-
+            
             try {
                 const correo = await this.correoService.enviarCorreoHTTP(
                     formData,
@@ -1654,6 +1717,7 @@ export class PutTicketsService {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
                 const savedlog = await this.logsService.enviarLog(correoData, "errorContacto", token);
+                correoData.motivo = "Error de envío: contacto cliente.";
                 const savedCorreo = await this.filacorreosService.agregarCorreoHTTP(correoData, "contactoCliente", EstadoCorreo as Types.ObjectId, uploadedFiles);
                 return {
                     message: `No se pudo contactar al cliente, correo agregado a la fila.`,
@@ -1671,6 +1735,7 @@ export class PutTicketsService {
         ticketData: any,
         user: any,
         id: string,
+        token: string,
     ): Promise<{ message: string }> {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
@@ -1692,14 +1757,16 @@ export class PutTicketsService {
                 console.log('Transacción abortada.');
                 await session.abortTransaction();
                 session.endSession();
+                await this.logsService.enviarLog({ message: `Error al agregar la razón pendiente.` }, "genericLog", token);
                 return { message: `No fue posible agregar la razón pendiente.` };
             } else {
+                await this.logsService.enviarLog({ message: `Razón pendiente agregada correctamente al Ticket ${updatedTicket.Id}.` }, "genericLog", token);
                 return {
                     message: `Razón pendiente agregada correctamente al Ticket ${updatedTicket.Id}.`,
                 };
             }
         } catch (error) {
-            console.error('Error al agregar pendingreason el Ticket:', error.message);
+            await this.logsService.enviarLog({ message: `Error al agregar la razón pendiente.` }, "genericLog", token);
             throw new BadRequestException('Error interno del servidor.');
         }
     }
@@ -1732,6 +1799,7 @@ export class PutTicketsService {
                 console.log('Transacción abortada.');
                 await session.abortTransaction();
                 session.endSession();
+                await this.logsService.enviarLog({ message: `Error al editar el Ticket.` }, "genericLog", token);
                 return { message: `No fue posible editar el ticket.` };
             }
 
@@ -1751,17 +1819,18 @@ export class PutTicketsService {
                 );
 
                 if (!updatedTicket) {
+                    await this.logsService.enviarLog({ message: `No se encontró el ticket para actualizar archivos.` }, "genericLog", token);
                     throw new BadRequestException(
                         'No se encontró el ticket para actualizar archivos.',
                     );
                 }
             }
-
+            await this.logsService.enviarLog({ message: `Ticket ${updatedTicket.Id} guardado correctamente.` }, "genericLog", token);
             return {
                 message: `Ticket ${updatedTicket.Id} guardado correctamente.`,
             };
         } catch (error) {
-            console.error('Error al editar el Ticket:', error.message);
+            await this.logsService.enviarLog({ message: `Error al editar el Ticket.` }, "genericLog", token);
             throw new BadRequestException('Error interno del servidor.');
         }
     }
@@ -1802,6 +1871,7 @@ export class PutTicketsService {
                 console.log('Transacción abortada.');
                 await session.abortTransaction();
                 session.endSession();
+                await this.logsService.enviarLog({ message: `Error al agregar oficio de cierre al Ticket.` }, "genericLog", token);
                 return { message: `No fue posible agregar el oficio.` };
             } else {
 
@@ -1814,126 +1884,146 @@ export class PutTicketsService {
                     `Se agregó oficio de cierre al Ticket #${updatedTicket.Id}.`,
                     'Oficio de cierre agregado',
                 );
-
+                await this.logsService.enviarLog({ message: `Oficio de cierre agregado correctamente al Ticket ${updatedTicket.Id}.` }, "genericLog", token);
                 return {
                     message: `Oficio de cierre agregado correctamente al Ticket ${updatedTicket.Id}.`,
                 };
             }
         } catch (error) {
-            console.error('Error al crear el Ticket:', error.message);
+            await this.logsService.enviarLog({ message: `Error al agregar oficio de cierre al ticket.` }, "genericLog", token);
             throw new BadRequestException('Error interno del servidor.');
         }
     }
 
-    async updateArea(_id: string, Area: string) {
+    async updateArea(_id: string, Area: string, token: string) {
         try {
             const result = await this.areaModel.updateOne(
                 { _id },
                 { $set: { Area } },
             );
-            if (!result)
+            if (!result) {
+                await this.logsService.enviarLog({ message: `Ocurrio un error al actualizar el área.` }, "genericLog", token);
                 throw new BadRequestException('Ocurrio un error al actualizar el área');
+            }
+            await this.logsService.enviarLog({ message: `El área se actualizó de manera correcta.` }, "genericLog", token);
             return { message: 'El área se actualizó de manera correcta' };
         } catch (error) {
             console.log(error);
+            await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar el área: Error interno en el servidor.` }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al actualizar el área: Error interno en el servidor.',
             );
         }
     }
 
-    async updateDependencia(_id: string, Dependencia: string) {
+    async updateDependencia(_id: string, Dependencia: string, token: string) {
         try {
             const result = await this.dependenciaModel.updateOne(
                 { _id },
                 { $set: { Dependencia } },
             );
-            if (!result)
-                throw new BadRequestException('Ocurrio un error al actualizar el área');
-            return { message: 'La dependencia se actualizó de manera correcta' };
+            if (!result) {
+                await this.logsService.enviarLog({ message: `Ocurrio un error al actualizar la dependencia.` }, "genericLog", token);
+                throw new BadRequestException('Ocurrio un error al actualizar la dependencia');
+            }
+            await this.logsService.enviarLog({ message: `La dependencia se actualizó de manera correcta.` }, "genericLog", token);
+            return { message: 'La dependencia se actualizó de manera correcta.' };
         } catch (error) {
-            console.log(error);
+            await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar la dependencia: Error interno en el servidor.` }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al actualizar la dependencia: Error interno en el servidor.',
             );
         }
     }
 
-    async updateDGeneral(_id: string, Direccion_General: string) {
+    async updateDGeneral(_id: string, Direccion_General: string, token: string) {
         try {
             const result = await this.direcciongeneralModel.updateOne(
                 { _id },
                 { $set: { Direccion_General } },
             );
-            if (!result)
-                throw new BadRequestException(
-                    'Ocurrio un error al actualizar la direccion general',
-                );
+            if (!result) {
+                await this.logsService.enviarLog({ message: `Ocurrio un error al actualizar la direccion general.` }, "genericLog", token);
+                throw new BadRequestException('Ocurrio un error al actualizar la direccion general.');
+            }
+            await this.logsService.enviarLog({ message: `La dependencia se actualizó de manera correcta.` }, "genericLog", token);
             return {
                 message: 'La direccion general se actualizó de manera correcta',
             };
         } catch (error) {
-            console.log(error);
+            await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar la direccion general: Error interno en el servidor.` }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al actualizar la direccion general: Error interno en el servidor.',
             );
         }
     }
 
-    async updateDArea(_id: string, direccion_area: string) {
+    async updateDArea(_id: string, direccion_area: string, token: string) {
         try {
             const result = await this.direccionAreaModel.updateOne(
                 { _id },
                 { $set: { direccion_area } },
             );
-            if (!result)
+            if (!result) {
+                await this.logsService.enviarLog({ message: `Ocurrio un error al actualizar la direccion de área.` }, "genericLog", token);
                 throw new BadRequestException(
-                    'Ocurrio un error al actualizar la direccion de área',
+                    'Ocurrio un error al actualizar la direccion de área.',
                 );
+            }
+            await this.logsService.enviarLog({ message: `La direccion de área se actualizó de manera correcta.` }, "genericLog", token);
             return {
                 message: 'La direccion de área se actualizó de manera correcta',
             };
         } catch (error) {
+            await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar la direccion de área: Error interno en el servidor.` }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al actualizar la direccion de área: Error interno en el servidor.',
             );
         }
     }
 
-    async updateMedios(_id: string, Medio: string) {
+    async updateMedios(_id: string, Medio: string, token: string) {
         try {
             const result = await this.medioModel.updateOne(
                 { _id },
                 { $set: { Medio } },
             );
-            if (!result)
+            if (!result) {
+                await this.logsService.enviarLog({ message: `Ocurrio un error al actualizar el medio de contacto.` }, "genericLog", token);
                 throw new BadRequestException(
                     'Ocurrio un error al actualizar el medio de contacto',
                 );
+            }
+            await this.logsService.enviarLog({ message: `El medio de contacto se actualizó de manera correcta.` }, "genericLog", token);
             return {
                 message: 'El medio de contacto se actualizó de manera correcta',
             };
         } catch (error) {
+            await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar el medio de contacto: Error interno en el servidor.` }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al actualizar el medio de contacto: Error interno en el servidor.',
             );
         }
     }
 
-    async updatePuesto(_id: string, Puesto: string) {
+    async updatePuesto(_id: string, Puesto: string, token: string) {
         try {
             const result = await this.puestoModel.updateOne(
                 { _id },
                 { $set: { Puesto } },
             );
-            if (!result)
+            if (!result) {
+                await this.logsService.enviarLog({ message: `Ocurrio un error al actualizar el puesto de trabajo.` }, "genericLog", token);
                 throw new BadRequestException(
-                    'Ocurrio un error al actualizar el puesto de trabajo',
+                    'Ocurrio un error al actualizar el puesto de trabajo.',
                 );
+            }
+            await this.logsService.enviarLog({ message: `El puesto de trabajo se actualizó de manera correcta.` }, "genericLog", token);
             return {
                 message: 'El puesto de trabajo se actualizó de manera correcta',
             };
         } catch (error) {
+            await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar el puesto de trabajo: Error interno en el servidor.` }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al actualizar el puesto de trabajo: Error interno en el servidor.',
             );

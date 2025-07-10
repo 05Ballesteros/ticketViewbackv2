@@ -28,6 +28,9 @@ export class RechazarSolucionDto {
 
   @IsString()
   feedback: string;
+  
+  @IsString()
+  Reasignado_a: string;
 
   @ValidateNested({ each: true })
   @Type(() => FileDto)

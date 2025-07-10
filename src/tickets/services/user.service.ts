@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User } from 'src/common/Interfaces/interfacesparaconsulta';
@@ -50,6 +50,24 @@ export class UserService {
         }
     };
 
+    async getAreaMesa() {
+        try {
+            const usuario = await this.usuarioModel.findOne({ Username: "standby" });
+
+            if (!usuario) {
+                throw new NotFoundException('Usuario "standby" no encontrado');
+            }
+
+            return usuario.Area;
+
+        } catch (error) {
+            console.error(error);
+            throw new BadRequestException('No se pudo obtener las áreas del usuario');
+        }
+    }
+
+
+
     async getCorreoUsuario(id: any) {
         try {
             // Convertir el string a ObjectId
@@ -62,36 +80,33 @@ export class UserService {
         }
     };
 
-    async getareaAsignado(userId: any) {
+    async getareaAsignado(userId: any): Promise<Types.ObjectId[]> {
         try {
-            const result = await this.usuarioModel.findOne({ _id: userId }).lean();
-            if (!result) {
-                return false;
-            }
-            const areaUsuario = await this.usuarioModel.populate(result, [{ path: "Area" }]);
-            return areaUsuario.Area[0]?._id;
+            const result = await this.usuarioModel.findOne({ _id: userId }).populate('Area');
+                return result?.Area ?? [];
         } catch (error) {
-            return false;
+            console.error('Error en getareaAsignado:', error);
+            return [];
         }
-    };
+    }
 
     async getRolAsignado(userId: any): Promise<string> {
-    try {
-        const result = await this.usuarioModel
-            .findOne({ _id: userId })
-            .populate<{ Rol: { Rol: string } }>({ path: "Rol", select: "Rol" })
-            .lean<User>();
+        try {
+            const result = await this.usuarioModel
+                .findOne({ _id: userId })
+                .populate<{ Rol: { Rol: string } }>({ path: "Rol", select: "Rol" })
+                .lean<User>();
 
-        if (!result || !result.Rol) {
-            throw new Error("El rol no fue encontrado para el usuario proporcionado.");
+            if (!result || !result.Rol) {
+                throw new Error("El rol no fue encontrado para el usuario proporcionado.");
+            }
+
+            return result.Rol.Rol;
+        } catch (error) {
+            console.error("Error en getRolAsignado:", error.message);
+            throw new Error("Error al obtener el rol del usuario.");
         }
-
-        return result.Rol.Rol;
-    } catch (error) {
-        console.error("Error en getRolAsignado:", error.message);
-        throw new Error("Error al obtener el rol del usuario.");
     }
-}
 
 
     async getRolModerador(Rol: string) {
