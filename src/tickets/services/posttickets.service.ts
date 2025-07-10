@@ -96,7 +96,6 @@ export class PostTicketsService {
                 Descripcion: dto.Descripcion,
                 NumeroRec_Oficio: dto.NumeroRec_Oficio,
                 Creado_por: new Types.ObjectId(user.userId),
-                Creado_por: new Types.ObjectId(user.userId),
                 Estado: Estado,
                 Area: Categorizacion?.Equipo,
                 Fecha_hora_creacion: obtenerFechaActual(),
@@ -108,6 +107,8 @@ export class PostTicketsService {
                 Fecha_hora_reabierto: fechaDefecto,
                 Historia_ticket: Historia_ticket,
                 Id: Id,
+                AreaTicket: asignado?.Area,
+
             };
             // Agregar `Asignado_a o Reasignado_a segun el rol`
             const propiedadesRol = await validarRol(rolAsignado, Moderador, dto);
@@ -174,15 +175,12 @@ export class PostTicketsService {
                 telefono: cliente?.Telefono,
                 ubicacion: cliente?.Ubicacion,
                 area: cliente?.direccion_area?.direccion_area,
+                motivo: "",
             };
             //9.- Enviar correos
             const channel = 'channel_crearTicket';
             try {
                 const correo = await this.correoService.enviarCorreo(
-                    correoData,
-                    channel,
-                    token,
-                );
                     correoData,
                     channel,
                     token,
@@ -195,6 +193,8 @@ export class PostTicketsService {
                 const EstadoCorreo = await this.getticketsService.getEstado("PENDIENTES");
                 console.warn("No se pudo enviar el correo. Se guardará en la fila. Error:", correoError.message);
                 const savedlog = await this.logsService.enviarLog(correoData, "errorCorreo", token, "creado");
+                // Agregar el motivo al objeto correoData
+                correoData.motivo = "Error de envío: creación de ticket.";
                 const savedCorreo = await this.filacorreosService.agregarCorreo(correoData, channel, EstadoCorreo as Types.ObjectId);
                 await session.commitTransaction();
                 committed = true;
@@ -230,94 +230,108 @@ export class PostTicketsService {
         }
     }
 
-    async createAreas(Area: string) {
+    async createAreas(Area: string, token: string) {
         try {
             const nuevaArea = await this.areaModel.create({ Area });
-            if (!nuevaArea)
+            if (!nuevaArea) {
+                await this.logsService.enviarLog({ message: "❌ Ocurrió un error al crear el área." }, "genericLog", token);
                 throw new BadRequestException('Ocurrio un error al crear el área');
+            }
+            await this.logsService.enviarLog({ message: " ✅ El área se creó de manera correcta." }, "genericLog", token);
             return { message: 'El área se creó de manera correcta' };
         } catch (error) {
+            await this.logsService.enviarLog({ message: "❌ Ocurrió un error al crear el área: Error interno en el servidor." }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al crear el área: Error interno en el servidor.',
             );
         }
     }
 
-    async createDependencias(Dependencia: string) {
+    async createDependencias(Dependencia: string, token: string) {
         try {
             const nuevaDependencia = await this.dependenciaModel.create({
                 Dependencia,
             });
-            if (!nuevaDependencia)
-                throw new BadRequestException(
-                    'Ocurrio un error al crear la dependencia',
-                );
+            if (!nuevaDependencia) {
+                await this.logsService.enviarLog({ message: "❌ Ocurrio un error al crear la dependencia." }, "genericLog", token);
+                throw new BadRequestException('Ocurrio un error al crear la dependencia');
+            }
+            await this.logsService.enviarLog({ message: " ✅ La dependencia se creó de manera correcta." }, "genericLog", token);
             return { message: 'La dependencia se creó de manera correcta' };
         } catch (error) {
+            await this.logsService.enviarLog({ message: "❌ Ocurrió un error al crear la dependencia: Error interno en el servidor." }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al crear la dependencia: Error interno en el servidor.',
             );
         }
     }
 
-    async createDGenerales(Direccion_General: string) {
+    async createDGenerales(Direccion_General: string, token: string) {
         try {
             const nuevaDGeneral = await this.direcciongeneralModel.create({
                 Direccion_General,
             });
-            if (!nuevaDGeneral)
-                throw new BadRequestException(
-                    'Ocurrio un error al crear la Direccion General',
-                );
+            if (!nuevaDGeneral) {
+                await this.logsService.enviarLog({ message: "❌ Ocurrio un error al crear la Direccion General." }, "genericLog", token);
+                throw new BadRequestException('Ocurrio un error al crear la Direccion General.');
+            }
+            await this.logsService.enviarLog({ message: "✅ La direccion general se creó de manera correcta." }, "genericLog", token);
             return { message: 'La direccion general se creó de manera correcta' };
         } catch (error) {
+            await this.logsService.enviarLog({ message: "❌ Ocurrió un error al crear la direccion general: Error interno en el servidor." }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al crear la direccion general: Error interno en el servidor.',
             );
         }
     }
 
-    async createDAreas(direccion_area: string) {
+    async createDAreas(direccion_area: string, token: string) {
         try {
             const nuevaDArea = await this.direccionAreaModel.create({
                 direccion_area,
             });
-            if (!nuevaDArea)
-                throw new BadRequestException(
-                    'Ocurrio un error al crear la Direccion de área',
-                );
+            if (!nuevaDArea) {
+                await this.logsService.enviarLog({ message: "❌ Ocurrio un error al crear la Direccion de área." }, "genericLog", token);
+                throw new BadRequestException('Ocurrio un error al crear la Direccion de área.');
+            }
+            await this.logsService.enviarLog({ message: "✅ La direccion de área se creó de manera correcta." }, "genericLog", token);
             return { message: 'La direccion de área se creó de manera correcta' };
         } catch (error) {
+            await this.logsService.enviarLog({ message: "❌ Ocurrió un error al crear la direccion de área: Error interno en el servidor." }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al crear la direccion de área: Error interno en el servidor.',
             );
         }
     }
 
-    async createMedios(Medio: string) {
+    async createMedios(Medio: string, token: string) {
         try {
             const medio = await this.medioModel.create({ Medio });
-            if (!medio)
-                throw new BadRequestException(
-                    'Ocurrio un error al crear el medio de contacto',
-                );
+            if (!medio) {
+                await this.logsService.enviarLog({ message: "❌ Ocurrio un error al crear el medio de contacto." }, "genericLog", token);
+                throw new BadRequestException('Ocurrio un error al crear la Direccion de área.');
+            }
+            await this.logsService.enviarLog({ message: "✅ El medio de contacto se creó de manera correcta." }, "genericLog", token);
             return { message: 'El medio de contacto se creó de manera correcta' };
         } catch (error) {
+            await this.logsService.enviarLog({ message: "❌ Ocurrió un error al crear el medio de contacto: Error interno en el servidor." }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al crear el medio de contacto: Error interno en el servidor.',
             );
         }
     }
 
-    async createPuestos(Puesto: string) {
+    async createPuestos(Puesto: string, token: string) {
         try {
             const puesto = await this.puestoModel.create({ Puesto });
-            if (!puesto)
-                throw new BadRequestException(
-                    'Ocurrio un error al crear el puesto de trabajo',
-                );
+            if (!puesto) {
+                await this.logsService.enviarLog({ message: "❌ Ocurrio un error al crear el puesto de trabajo." }, "genericLog", token);
+                throw new BadRequestException('Ocurrio un error al crear la Direccion de área.');
+            }
+            await this.logsService.enviarLog({ message: "✅ El puesto de trabajo se creó de manera correcta." }, "genericLog", token);
             return { message: 'El puesto de trabajo se creó de manera correcta' };
         } catch (error) {
+            await this.logsService.enviarLog({ message: "❌ Ocurrió un error al crear el puesto de trabajo: Error interno en el servidor." }, "genericLog", token);
             throw new InternalServerErrorException(
                 'Ocurrió un error al crear el puesto de trabajo: Error interno en el servidor.',
             );

@@ -46,5 +46,4 @@ export class CreateTicketDto {
   @IsOptional()
   @IsString()
   PendingReason?: string;
-
 }

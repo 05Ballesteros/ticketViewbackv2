@@ -39,6 +39,9 @@ export class RegresarTicketResolutorDto {
   @IsString()
   Descripcion_respuesta_cliente: string;
 
+  @IsString()
+  Reasignado_a: string;
+
   @ValidateNested({ each: true })
   @Type(() => FileDto)
   @IsOptional()

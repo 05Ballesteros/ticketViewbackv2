@@ -486,6 +486,14 @@ export class GetTicketsService {
         const formattedTickets = populatedTickets.map(formatDates);
         return formattedTickets;
     }
+    async getAsignado(_id: string) {
+        const ticket = await this.ticketModel.findById(new Types.ObjectId(_id));
+        if (!ticket) {
+            throw new NotFoundException(`No se encontró el ticket con ID ${_id}`);
+        }
+
+        return ticket.Asignado_a;
+    }
     //Falta corregirlo.
     async exportTicketsToExcel(): Promise<string> {
         try {

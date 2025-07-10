@@ -89,8 +89,8 @@ export class TicketsController {
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: ReabrirTicketDto,
     ): Promise<{ message: string; }> {
-         const result = await this.putticketsService.reabrirTicket(ticketData, req.user, token, files, id);
-         return {
+        const result = await this.putticketsService.reabrirTicket(ticketData, req.user, token, files, id);
+        return {
             message: result.message,
         };
     };
@@ -116,9 +116,10 @@ export class TicketsController {
     async aceptarResolucionTicket(
         @Param('id') id: string,
         @Req() req: any,
+        @Token() token: string,
         @Body() ticketData: AceptarSolucionDto,
     ): Promise<{ message: string }> {
-        const result = await this.putticketsService.aceptarResolucion(ticketData, req.user, id);
+        const result = await this.putticketsService.aceptarResolucion(ticketData, req.user, id, token);
         return {
             message: result.message,
         };
@@ -233,10 +234,11 @@ export class TicketsController {
     @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
     async PendingReason(
         @Param('id') id: string,
+        @Token() token: string,
         @Req() req: any,
         @Body() ticketData: PendingReasonDto,
     ): Promise<{ message: string }> {
-        const result = await this.putticketsService.PendingReason(ticketData, req.user, id);
+        const result = await this.putticketsService.PendingReason(ticketData, req.user, id, token);
         return {
             message: result.message,
         };
@@ -293,76 +295,76 @@ export class TicketsController {
     getAreas() { return this.getticketsService.getAreas(); };
 
     @Post('areas')
-    createAreas(@Body('area') area: string) { 
-        return this.postticketsService.createAreas(area); 
+    createAreas(@Body('area') area: string, @Token() token: string) {
+        return this.postticketsService.createAreas(area, token);
     };
 
     @Put('areas/:id')
-    updateArea(@Param('id') id: string, @Body('area') area: string) {
+    updateArea(@Param('id') id: string, @Body('area') area: string, @Token() token: string) {
         console.log("area en el controlador", area)
-        return this.putticketsService.updateArea(id, area)
+        return this.putticketsService.updateArea(id, area, token)
     };
 
     @Get('dependencias')
     getDependencias() { return this.getticketsService.getDependencias(); };
 
     @Post('dependencias')
-    createDependencias(@Body('dependencia') dependencia: string) { 
-        return this.postticketsService.createDependencias(dependencia); 
+    createDependencias(@Body('dependencia') dependencia: string, @Token() token: string) {
+        return this.postticketsService.createDependencias(dependencia, token);
     };
 
     @Put('dependencias/:id')
-    updateDependencia(@Param('id') id: string, @Body('dependencia') dependencia: string) {
-        return this.putticketsService.updateDependencia(id, dependencia)
+    updateDependencia(@Param('id') id: string, @Body('dependencia') dependencia: string, @Token() token: string,) {
+        return this.putticketsService.updateDependencia(id, dependencia, token)
     };
 
     @Get('dgenerales')
     getDGenerales() { return this.getticketsService.getDGenerales(); };
 
     @Post('dgenerales')
-    createDGeneral(@Body('dgeneral') dgeneral: string) { 
-        return this.postticketsService.createDGenerales(dgeneral); 
+    createDGeneral(@Body('dgeneral') dgeneral: string, @Token() token: string) {
+        return this.postticketsService.createDGenerales(dgeneral, token);
     };
 
     @Put('dgenerales/:id')
-    updateDGeneral(@Param('id') id: string, @Body('dgeneral') dgeneral: string) {
-        return this.putticketsService.updateDGeneral(id, dgeneral)
+    updateDGeneral(@Param('id') id: string, @Body('dgeneral') dgeneral: string, @Token() token: string) {
+        return this.putticketsService.updateDGeneral(id, dgeneral, token)
     };
 
     @Get('dareas')
     getDAreas() { return this.getticketsService.getDAreas(); };
 
     @Post('dareas')
-    createDArea(@Body('darea') darea: string) { 
-        return this.postticketsService.createDAreas(darea); 
+    createDArea(@Body('darea') darea: string, @Token() token: string) {
+        return this.postticketsService.createDAreas(darea, token);
     };
 
     @Put('dareas/:id')
-    updateDArea(@Param('id') id: string, @Body('darea') darea: string) {
-        return this.putticketsService.updateDArea(id, darea)
+    updateDArea(@Param('id') id: string, @Body('darea') darea: string, @Token() token: string) {
+        return this.putticketsService.updateDArea(id, darea, token)
     };
 
     @Post('medios')
-    createMedio(@Body('medio') medio: string) { 
-        return this.postticketsService.createMedios(medio); 
+    createMedio(@Body('medio') medio: string, @Token() token: string) {
+        return this.postticketsService.createMedios(medio, token);
     };
 
     @Put('medios/:id')
-    updateMedios(@Param('id') id: string, @Body('medio') medio: string) {
-        return this.putticketsService.updateMedios(id, medio)
+    updateMedios(@Param('id') id: string, @Body('medio') medio: string, @Token() token: string) {
+        return this.putticketsService.updateMedios(id, medio, token)
     };
 
     @Get('puestos')
     getPuestos() { return this.getticketsService.getPuestos(); };
 
     @Post('puestos')
-    createPuestos(@Body('puesto') puesto: string) { 
-        return this.postticketsService.createPuestos(puesto); 
+    createPuestos(@Body('puesto') puesto: string, @Token() token: string) {
+        return this.postticketsService.createPuestos(puesto, token);
     };
 
     @Put('puestos/:id')
-    updatePuesto(@Param('id') id: string, @Body('puesto') puesto: string) {
-        return this.putticketsService.updatePuesto(id, puesto)
+    updatePuesto(@Param('id') id: string, @Body('puesto') puesto: string, @Token() token: string) {
+        return this.putticketsService.updatePuesto(id, puesto, token)
     };
 
     @Get('catalogoservicio')

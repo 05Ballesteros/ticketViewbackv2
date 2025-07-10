@@ -18,6 +18,9 @@ export class CerrarTicketDto {
 
   @IsString()
   Descripcion_cierre: string;
+  
+  @IsString()
+  Resuelto_por: string;
 
   @ValidateNested({ each: true })
   @Type(() => FileDto)
