@@ -1722,6 +1722,7 @@ export class PutTicketsService {
         } catch (error) {
             await this.logsService.enviarLog({ message: "❌ Error al contactar al cliente." }, "genericLog", token);
             handleKnownErrors(error, "Ocurrió un error al contactar al cliente")
+            return { message: "No se pudo contactar al cliente por un error interno." };
         }
     }
     async PendingReason(
@@ -1761,6 +1762,7 @@ export class PutTicketsService {
         } catch (error) {
             await this.logsService.enviarLog({ message: `Error al agregar la razón pendiente.` }, "genericLog", token);
             handleKnownErrors(error, "Ocurrió un error al agregar la razón pendiente al ticket")
+            return { message: "No fue posible agregar la razón pendiente, error interno." };
         }
     }
     async editarTicket(
@@ -1985,7 +1987,6 @@ export class PutTicketsService {
             };
         } catch (error) {
             await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar el medio de contacto: Error interno en el servidor.` }, "genericLog", token);
-            c
         }
     }
 
