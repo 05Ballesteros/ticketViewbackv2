@@ -546,6 +546,14 @@ export class TicketsController {
         }
     }
 
+    @Put('/cambiarticketcelula/:id')
+    async cambiarTicketCelula(
+        @Param('id') _id: string,
+        @Body() body: { formatedCelula: string[] },
+    ) {
+        return this.putticketsService.cambiarTicketCelula(_id, body.formatedCelula);
+    }
+
     @Get('/ncresolutor')
     async getBusquedaAvanzadaNcResolutor(@Query('termino') paramResolutor: string) {
         try {
@@ -680,6 +688,12 @@ export class TicketsController {
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
+    }
+
+    @Get('/getcelulas')
+    async getCelulas() {
+        return this.getticketsService.getCelulas();
+
     }
 
     @Get('/:id')

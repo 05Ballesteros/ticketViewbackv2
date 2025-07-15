@@ -52,6 +52,7 @@ import {
     generateNotification
 } from 'src/common/utils/generateNotificacion';
 import { NotificationGateway } from 'src/notifications/notification.gateway';
+import { handleKnownErrors } from 'src/common/utils/handle-known-errors.util';
 
 @Injectable()
 export class PutTicketsService {
@@ -1194,7 +1195,7 @@ export class PutTicketsService {
                 emails_extra: <string[]>[],
                 motivo: "",
             };
-            
+
             const channel = 'channel_regresarTicketResolutor';
             try {
                 const correo = await this.correoService.enviarCorreo(
@@ -1320,16 +1321,16 @@ export class PutTicketsService {
                 motivo: "",
             };
             console.log('correoData', correoData);
-            
+
             formData.append('correoData', JSON.stringify(correoData));
-            
+
             if (files.length > 0) {
                 files.forEach((file) => {
                     const buffer = fs.readFileSync(file.path);
                     formData.append('files', buffer, file.originalname);
                 });
             }
-            
+
             try {
                 const correo = await this.correoService.enviarCorreoHTTP(
                     formData,
@@ -1476,7 +1477,7 @@ export class PutTicketsService {
                 details: ticketData.Nota,
                 motivo: "",
             };
-            
+
             if (!destinatario) {
                 console.warn('No hay destinatarios válidos para enviar el correo.');
                 await session.abortTransaction();
@@ -1591,16 +1592,16 @@ export class PutTicketsService {
                 details: cuerpoCorreo,
                 motivo: "",
             };
-            
+
             formData.append('correoData', JSON.stringify(correoData));
-            
+
             if (files.length > 0) {
                 files.forEach((file) => {
                     const buffer = fs.readFileSync(file.path);
                     formData.append('files', buffer, file.originalname);
                 });
             }
-            
+
             try {
                 const correo = await this.correoService.enviarCorreoHTTP(formData, 'pendiente', _id, token);
                 console.log("Mensaje enviado al email service");
@@ -1686,14 +1687,14 @@ export class PutTicketsService {
             };
             console.log('CorreoData', correoData);
             formData.append('correoData', JSON.stringify(correoData));
-            
+
             if (files.length > 0) {
                 files.forEach((file) => {
                     const buffer = fs.readFileSync(file.path);
                     formData.append('files', buffer, file.originalname);
                 });
             }
-            
+
             try {
                 const correo = await this.correoService.enviarCorreoHTTP(
                     formData,
@@ -1728,7 +1729,7 @@ export class PutTicketsService {
             };
         } catch (error) {
             await this.logsService.enviarLog({ message: "❌ Error al contactar al cliente." }, "genericLog", token);
-            throw new BadRequestException("❌ Error al contactar al cliente.");
+            handleKnownErrors(error, "Ocurrió un error al contactar al cliente")
         }
     }
     async PendingReason(
@@ -1767,7 +1768,7 @@ export class PutTicketsService {
             }
         } catch (error) {
             await this.logsService.enviarLog({ message: `Error al agregar la razón pendiente.` }, "genericLog", token);
-            throw new BadRequestException('Error interno del servidor.');
+            handleKnownErrors(error, "Ocurrió un error al agregar la razón pendiente al ticket")
         }
     }
     async editarTicket(
@@ -1831,7 +1832,7 @@ export class PutTicketsService {
             };
         } catch (error) {
             await this.logsService.enviarLog({ message: `Error al editar el Ticket.` }, "genericLog", token);
-            throw new BadRequestException('Error interno del servidor.');
+            handleKnownErrors(error, "Ocurrió un error al editar la información del ticket")
         }
     }
     async agregarOficio(
@@ -1891,7 +1892,7 @@ export class PutTicketsService {
             }
         } catch (error) {
             await this.logsService.enviarLog({ message: `Error al agregar oficio de cierre al ticket.` }, "genericLog", token);
-            throw new BadRequestException('Error interno del servidor.');
+            handleKnownErrors(error, "Ocurrió un error al agregar el oficio de cierre")
         }
     }
 
@@ -1910,9 +1911,7 @@ export class PutTicketsService {
         } catch (error) {
             console.log(error);
             await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar el área: Error interno en el servidor.` }, "genericLog", token);
-            throw new InternalServerErrorException(
-                'Ocurrió un error al actualizar el área: Error interno en el servidor.',
-            );
+            handleKnownErrors(error, "Ocurrió un error al actualizar el área")
         }
     }
 
@@ -1930,9 +1929,7 @@ export class PutTicketsService {
             return { message: 'La dependencia se actualizó de manera correcta.' };
         } catch (error) {
             await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar la dependencia: Error interno en el servidor.` }, "genericLog", token);
-            throw new InternalServerErrorException(
-                'Ocurrió un error al actualizar la dependencia: Error interno en el servidor.',
-            );
+            handleKnownErrors(error, "Ocurrió un error al actualizar la dependencia")
         }
     }
 
@@ -1952,9 +1949,7 @@ export class PutTicketsService {
             };
         } catch (error) {
             await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar la direccion general: Error interno en el servidor.` }, "genericLog", token);
-            throw new InternalServerErrorException(
-                'Ocurrió un error al actualizar la direccion general: Error interno en el servidor.',
-            );
+            handleKnownErrors(error, "Ocurrió un error al actualizar la direccion general")
         }
     }
 
@@ -1976,9 +1971,7 @@ export class PutTicketsService {
             };
         } catch (error) {
             await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar la direccion de área: Error interno en el servidor.` }, "genericLog", token);
-            throw new InternalServerErrorException(
-                'Ocurrió un error al actualizar la direccion de área: Error interno en el servidor.',
-            );
+            handleKnownErrors(error, "Ocurrió un error al actualizar la direccion de área")
         }
     }
 
@@ -2000,9 +1993,7 @@ export class PutTicketsService {
             };
         } catch (error) {
             await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar el medio de contacto: Error interno en el servidor.` }, "genericLog", token);
-            throw new InternalServerErrorException(
-                'Ocurrió un error al actualizar el medio de contacto: Error interno en el servidor.',
-            );
+            c
         }
     }
 
@@ -2024,9 +2015,18 @@ export class PutTicketsService {
             };
         } catch (error) {
             await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar el puesto de trabajo: Error interno en el servidor.` }, "genericLog", token);
-            throw new InternalServerErrorException(
-                'Ocurrió un error al actualizar el puesto de trabajo: Error interno en el servidor.',
-            );
+            handleKnownErrors(error, "Ocurrió un error al actualizar el puesto de trabajo")
+        }
+    }
+
+    async cambiarTicketCelula(_id: string, celula: string[]) {
+        const formatedCelula = celula.map((c) => new Types.ObjectId(c))
+        try {
+            const result = await this.ticketModel.findOneAndUpdate({ _id }, { $set: { Celulas: formatedCelula } })
+            if (!result) throw new BadRequestException("No se pudo actualizar el ticket");
+            return true
+        } catch (error) {
+            handleKnownErrors(error, "No se pudo cambiar de célula el ticket")
         }
     }
 }

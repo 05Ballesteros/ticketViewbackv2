@@ -1113,4 +1113,21 @@ export class GetTicketsService {
             );
         }
     }
+
+    async getCelulas() {
+        try {
+            const result = await this.celulaModel.find().sort({ Celula: 1 });
+
+            if (!result) throw new NotFoundException("No se encontraron celulas");
+
+            const groupedCelulas = result.map((r) => ({
+                label: r.Celula,
+                value: r._id,
+            }));
+
+            return groupedCelulas;
+        } catch (error) {
+            throw new InternalServerErrorException("No se encontraron celulas")
+        }
+    }
 }
