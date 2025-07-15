@@ -1,7 +1,7 @@
 import {
-    BadRequestException,
-    Injectable,
-    InternalServerErrorException,
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { Estado } from 'src/schemas/estados.schema';
 import { Ticket } from 'src/schemas/ticket.schema';
@@ -31,36 +31,36 @@ import { generateNotification } from 'src/common/utils/generateNotificacion';
 
 @Injectable()
 export class PostTicketsService {
-    constructor(
-        private readonly getticketsService: GetTicketsService,
-        private readonly userService: UserService,
-        private readonly clienteService: ClienteService,
-        private readonly correoService: CorreoService,
-        private readonly counterService: CounterService,
-        private readonly logsService: LogsService,
-        private readonly filacorreosService: FilaCorreosService,
-        private readonly redisService: RedisService,
-        @InjectConnection() private readonly connection: Connection,
-        @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
-        @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
-        @InjectModel(Area.name) private readonly areaModel: Model<Area>,
-        @InjectModel(Dependencia.name)
-        private readonly dependenciaModel: Model<Dependencia>,
-        @InjectModel(DireccionGeneral.name)
-        private readonly direcciongeneralModel: Model<DireccionGeneral>,
-        @InjectModel(DireccionArea.name)
-        private readonly direccionAreaModel: Model<DireccionArea>,
-        @InjectModel(Medio.name) private readonly medioModel: Model<Medio>,
-        @InjectModel(Puesto.name) private readonly puestoModel: Model<Puesto>,
-    ) { }
-    async crearTicket(
-        dto: any,
-        user: any,
-        token: string,
-        files: any,
-    ): Promise<{ message: string }> {
-        const session: ClientSession = await this.connection.startSession();
-        let committed = false; // ✅ Bandera
+  constructor(
+    private readonly getticketsService: GetTicketsService,
+    private readonly userService: UserService,
+    private readonly clienteService: ClienteService,
+    private readonly correoService: CorreoService,
+    private readonly counterService: CounterService,
+    private readonly logsService: LogsService,
+    private readonly filacorreosService: FilaCorreosService,
+    private readonly redisService: RedisService,
+    @InjectConnection() private readonly connection: Connection,
+    @InjectModel(Ticket.name) private readonly ticketModel: Model<Ticket>,
+    @InjectModel(Estado.name) private readonly estadoModel: Model<Estado>,
+    @InjectModel(Area.name) private readonly areaModel: Model<Area>,
+    @InjectModel(Dependencia.name)
+    private readonly dependenciaModel: Model<Dependencia>,
+    @InjectModel(DireccionGeneral.name)
+    private readonly direcciongeneralModel: Model<DireccionGeneral>,
+    @InjectModel(DireccionArea.name)
+    private readonly direccionAreaModel: Model<DireccionArea>,
+    @InjectModel(Medio.name) private readonly medioModel: Model<Medio>,
+    @InjectModel(Puesto.name) private readonly puestoModel: Model<Puesto>,
+  ) {}
+  async crearTicket(
+    dto: any,
+    user: any,
+    token: string,
+    files: any,
+  ): Promise<{ message: string }> {
+    const session: ClientSession = await this.connection.startSession();
+    let committed = false; // ✅ Bandera
 
         session.startTransaction();
         try {
@@ -204,30 +204,32 @@ export class PostTicketsService {
             await session.commitTransaction();
             committed = true;
 
-            await generateNotification(
-                this.redisService,
-                [
-                    savedTicket.Asignado_a,
-                ],
-                savedTicket.Id,
-                `Se ha creado el Ticket #${savedTicket.Id}.`,
-                'Ticket Creado',
-            );
+      await generateNotification(
+        this.redisService,
+        [savedTicket.Asignado_a],
+        savedTicket.Id,
+        `Se ha creado el Ticket #${savedTicket.Id}.`,
+        'Ticket Creado',
+      );
 
-            return {
-                message: `Ticket ${savedTicket.Id} creado correctamente.`,
-            };
-        } catch (error) {
-            await this.counterService.decrementSequence('Id');
-            if (!committed) {
-                await session.abortTransaction(); // ✅ Solo abortar si no se hizo commit
-            }
-            await this.logsService.enviarLog({ message: "❌ Error al crear el Ticket." }, "genericLog", token);
-            throw new BadRequestException("❌ Error al crear el Ticket.");
-        } finally {
-            session.endSession(); // ✅ Siempre se cierra aquí, una sola vez
-        }
+      return {
+        message: `Ticket ${savedTicket.Id} creado correctamente.`,
+      };
+    } catch (error) {
+      await this.counterService.decrementSequence('Id');
+      if (!committed) {
+        await session.abortTransaction(); // ✅ Solo abortar si no se hizo commit
+      }
+      await this.logsService.enviarLog(
+        { message: '❌ Error al crear el Ticket.' },
+        'genericLog',
+        token,
+      );
+      throw new BadRequestException('❌ Error al crear el Ticket.');
+    } finally {
+      session.endSession(); // ✅ Siempre se cierra aquí, una sola vez
     }
+  }
 
     async createAreas(Area: string, token: string) {
         try {
