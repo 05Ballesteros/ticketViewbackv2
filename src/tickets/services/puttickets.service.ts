@@ -1634,7 +1634,7 @@ export class PutTicketsService {
         emails_extra: string[],
         files: Express.Multer.File[],
         token: string,
-    ): Promise<{ message: string }> {
+    ) {
         try {
             const { userId, nombre } = user;
 
@@ -1729,7 +1729,7 @@ export class PutTicketsService {
         user: any,
         id: string,
         token: string,
-    ): Promise<{ message: string }> {
+    ) {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
@@ -1769,7 +1769,7 @@ export class PutTicketsService {
         id: string,
         files: any,
         token: string,
-    ): Promise<{ message: string }> {
+    ) {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
@@ -1833,7 +1833,7 @@ export class PutTicketsService {
         files: any,
         id: string,
         token: string,
-    ): Promise<{ message: string }> {
+    ) {
         const session: ClientSession = await this.connection.startSession();
         session.startTransaction();
         try {
@@ -1985,7 +1985,6 @@ export class PutTicketsService {
             };
         } catch (error) {
             await this.logsService.enviarLog({ message: `Ocurrió un error al actualizar el medio de contacto: Error interno en el servidor.` }, "genericLog", token);
-            c
         }
     }
 

@@ -223,11 +223,8 @@ export class TicketsController {
         @Token() token: string,
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: OficioDto,
-    ): Promise<{ message: string }> {
-        const result = await this.putticketsService.agregarOficio(ticketData, req.user, files, id, token);
-        return {
-            message: result.message,
-        };
+    ){
+        return await this.putticketsService.agregarOficio(ticketData, req.user, files, id, token);
     };
 
     @Put('PendingReason/:id')
@@ -237,11 +234,9 @@ export class TicketsController {
         @Token() token: string,
         @Req() req: any,
         @Body() ticketData: PendingReasonDto,
-    ): Promise<{ message: string }> {
-        const result = await this.putticketsService.PendingReason(ticketData, req.user, id, token);
-        return {
-            message: result.message,
-        };
+    ){
+        return await this.putticketsService.PendingReason(ticketData, req.user, id, token);
+        
     };
 
     @Put('editar/:id')
@@ -252,11 +247,9 @@ export class TicketsController {
         @UploadedFiles() files: Express.Multer.File[],
         @Body() ticketData: EditTicketDto,
         @Token() token: string,
-    ): Promise<{ message: string }> {
-        const result = await this.putticketsService.editarTicket(ticketData, req.user, id, files, token);
-        return {
-            message: result.message,
-        };
+    ){
+        return await this.putticketsService.editarTicket(ticketData, req.user, id, files, token);
+       
     };
 
     @Get('medios')
