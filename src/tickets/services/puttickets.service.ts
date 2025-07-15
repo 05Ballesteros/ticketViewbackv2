@@ -53,6 +53,7 @@ import {
 } from 'src/common/utils/generateNotificacion';
 import { NotificationGateway } from 'src/notifications/notification.gateway';
 import { handleKnownErrors } from 'src/common/utils/handle-known-errors.util';
+import { Celula } from 'src/schemas/celula.schema';
 
 @Injectable()
 export class PutTicketsService {
@@ -106,18 +107,11 @@ export class PutTicketsService {
             }
 
             // 2.- Obtener datos necesarios para actualizar el ticket
-            const areaAsignado = await this.userService.getareaAsignado(
-                ticketData.Asignado_a,
-            );
-            const rolAsignado = await this.userService.getRolAsignado(
-                ticketData.Asignado_a,
-            );
+            const asignado = await this.userService.getUsuario(ticketData.Asignado_a);
+            const rolAsignado = await this.userService.getRolAsignado(ticketData.Asignado_a);
             const cliente = await this.clienteService.getCliente(ticketData.Cliente);
             const RolModerador = await this.userService.getRolModerador('Moderador');
-            const Moderador = await this.userService.getModeradorPorAreayRol(
-                areaAsignado,
-                RolModerador,
-            );
+            const Moderador = await this.userService.getModeradorPorAreayRol(asignado?.Area, RolModerador);
             // 3.- Validar cuál estado asignar al ticket
             if (rolAsignado !== 'Usuario') {
                 Estado = await this.getticketsService.getEstado('NUEVOS');
@@ -134,15 +128,22 @@ export class PutTicketsService {
             //4.- Agregar la historia
             const Historia_ticket = await historicoAsignacion(user, ticketData);
             // Crear datos para el ticket
+            // Agregar `Reasignado_a` solo si es necesario
+            const propiedadesRol = await validarRol(rolAsignado, Moderador, ticketData);
+            const idParaCelulas = propiedadesRol.Reasignado_a || propiedadesRol.Asignado_a;
             const { Cliente, ...filteredTicketData } = ticketData; //Se hace para excluir el cliente y que no se guarde como string
             const updateData: any = {
                 $set: {
-                    ...filteredTicketData,
+                    Asignado_a: propiedadesRol.Asignado_a,
+                    Reasignado_a: propiedadesRol.Reasignado_a,
+                    Celulas: await this.userService.obtenerPorUsuario(idParaCelulas),
+                    Nota: ticketData.Nota,
+                    Files: ticketData.Files,
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     Estado: new Types.ObjectId(Estado),
                     standby: false,
-                    AreaTicket: areaAsignado && Array.isArray(areaAsignado)
-                        ? areaAsignado.map(area => area._id)
+                    AreaTicket: asignado?.Area && Array.isArray(asignado?.Area)
+                        ? asignado?.Area.map(area => area._id)
                         : [],
                 },
                 $unset: {
@@ -151,18 +152,6 @@ export class PutTicketsService {
                 $push: {
                     Historia_ticket: { $each: Historia_ticket },
                 },
-            };
-
-            // Agregar `Reasignado_a` solo si es necesario
-            const propiedadesRol = await validarRol(
-                rolAsignado,
-                Moderador,
-                ticketData,
-            );
-            // Agregar dinámicamente las propiedades al objeto `updateData.$set`
-            updateData.$set = {
-                ...updateData.$set,
-                ...propiedadesRol, // Combina las propiedades retornadas
             };
             //5.- Actualizar el ticket
             const updatedTicket = await this.ticketModel.findByIdAndUpdate(
@@ -301,11 +290,12 @@ export class PutTicketsService {
             const { Cliente, Nota, ...filteredTicketData } = reasignado; //Se hace para excluir el cliente y que no se guarde como string
             const Historia_ticket = await historicoReasignacion(user, Usuario);
             const Nota_ticket = await historicoNota(user, reasignado);
-            console.log(' historico y nota', Historia_ticket, Nota_ticket);
+            console.log(' filteredTicketData', filteredTicketData);
             // Crear datos para el ticket
             const updateData: any = {
                 $set: {
                     ...filteredTicketData,
+                    Celulas: await this.userService.obtenerPorUsuario(filteredTicketData.Reasignado_a),
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     vistoBueno: reasignado.vistoBueno,
                     AreaTicket: areaReasignado && Array.isArray(areaReasignado)
@@ -463,6 +453,7 @@ export class PutTicketsService {
                     AreaTicket: areaAsignado && Array.isArray(areaAsignado)
                         ? areaAsignado.map(area => area._id)
                         : [],
+                        Celulas: await this.userService.obtenerPorUsuario(ticketData?.Asignado_a),
                 },
                 $unset: {
                     PendingReason: "",
@@ -897,7 +888,7 @@ export class PutTicketsService {
                     standby: true,
                     Asignado_a: await this.userService.getUsuarioMesa('standby'),
                 },
-                $unset: { Reasignado_a: [] },
+                $unset: { Reasignado_a: [], Celulas: [] },
                 $push: { Historia_ticket: { $each: Historia_ticket } },
             };
             //4.- Actualizar el ticket
@@ -1023,6 +1014,7 @@ export class PutTicketsService {
                     AreaTicket,
                     Fecha_hora_ultima_modificacion: obtenerFechaActual(),
                     vistoBueno: false,
+                    Celulas: await this.userService.obtenerPorUsuario(ticket?.Asignado_a[0]._id),
                 },
                 $unset: { Reasignado_a: [] },
                 $push: { Historia_ticket: { $each: Historia_ticket } },

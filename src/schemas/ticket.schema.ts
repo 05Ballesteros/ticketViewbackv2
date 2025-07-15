@@ -108,8 +108,8 @@ export class Ticket extends Document {
   @Prop({ type: String, default: '' })
   PendingReason: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Celula', default: [] })
-  Celulas: Types.ObjectId;
+  @Prop({ type: [Types.ObjectId], ref: 'Celula', default: [] })
+  Celulas: Types.ObjectId[];
 
   @Prop([{ type: mongoose.Schema.Types.ObjectId }])
   AreaTicket: mongoose.Types.ObjectId[];
