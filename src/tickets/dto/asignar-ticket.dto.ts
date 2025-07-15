@@ -30,6 +30,4 @@ export class AsignarTicketDto {
   @IsOptional()
   Files?: FileDto[];
 
-
-
 }

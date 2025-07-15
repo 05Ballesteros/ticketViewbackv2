@@ -66,28 +66,32 @@ export class PostTicketsService {
         try {
             //1.-Verificar el asignado
             const dtoAsignado = await this.userService.verificarAsignado(dto);
-            //3.- Obtener información con la subcategoria
+            //2.- Obtener información con la subcategoria
             const Categorizacion = await this.getticketsService.getCategorizacion(
                 new Types.ObjectId(dto.Subcategoria),
             );
-            //4.- Calcular las fechas
+            //3.- Calcular las fechas
             const Fecha_limite = calcularFechaResolucion(dto.Tiempo);
-            //5.- Obtencion del asignado
+            //4.- Obtencion del asignado
             const asignado = await this.userService.getUsuario(
                 dtoAsignado.Asignado_a,
             );
             const rolAsignado = await this.userService.getRolAsignado(asignado?._id);
-            //2.- Verificar estado segun el asignado
+            //5.- Verificar estado segun el asignado
             const Estado = await this.getticketsService.getestadoTicket(rolAsignado);
             //6.- Se obtiene el cliente
             const cliente = await this.clienteService.getCliente(dto.Cliente);
-            //5.- LLenado del hostorico
+            //7.- LLenado del hostorico
             const Historia_ticket = await historicoCreacion(user, asignado);
+            //8.- Consultar el rol del asignado
             const RolModerador = await this.userService.getRolModerador('Moderador');
             const Moderador = await this.userService.getModeradorPorAreayRol(
                 asignado?.Area,
                 RolModerador,
             );
+            //9.- Agregar `Asignado_a o Reasignado_a segun el rol`
+            const propiedadesRol = await validarRol(rolAsignado, Moderador, dto);
+            const idParaCelulas = propiedadesRol.Reasignado_a || propiedadesRol.Asignado_a;
             const Id = await this.counterService.getNextSequence('Id');
             let data = {
                 Cliente: new Types.ObjectId(dto.Cliente),
@@ -108,14 +112,9 @@ export class PostTicketsService {
                 Historia_ticket: Historia_ticket,
                 Id: Id,
                 AreaTicket: asignado?.Area,
-
-            };
-            // Agregar `Asignado_a o Reasignado_a segun el rol`
-            const propiedadesRol = await validarRol(rolAsignado, Moderador, dto);
-            // Agregar dinámicamente las propiedades al objeto `updateData.$set`
-            data = {
-                ...data,
-                ...propiedadesRol,
+                Asignado_a: propiedadesRol.Asignado_a,
+                Reasignado_a: propiedadesRol.Reasignado_a,
+                Celulas: await this.userService.obtenerPorUsuario(idParaCelulas),
             };
             //6.- Se guarda el ticket
             let ticketInstance = new this.ticketModel(data);

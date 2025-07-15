@@ -83,7 +83,7 @@ export class UserService {
     async getareaAsignado(userId: any): Promise<Types.ObjectId[]> {
         try {
             const result = await this.usuarioModel.findOne({ _id: userId }).populate('Area');
-                return result?.Area ?? [];
+            return result?.Area ?? [];
         } catch (error) {
             console.error('Error en getareaAsignado:', error);
             return [];
@@ -160,4 +160,19 @@ export class UserService {
             throw new BadRequestException("No se encontro el Asignado");
         }
     };
+
+    async obtenerPorUsuario(userId?: Types.ObjectId): Promise<Types.ObjectId[]> {
+        const user = await this.usuarioModel
+            .findById(userId)
+            .select('Celula')
+            .exec();
+
+        if (!user) {
+            throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+        }
+        console.log("Celulas", user.Celula);
+        return user.Celula;
+    }
+
+
 };
